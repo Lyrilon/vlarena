@@ -7,9 +7,9 @@ export default function App() {
   const nav = [
     { name: "首页", href: "#" },
     { name: "Benchmark 榜单", href: "benchmark.html" },
-    { name: "论文地图", href: "#papers" },
-    { name: "数据与任务", href: "#datasets" },
-    { name: "复现日志", href: "#repro" },
+    { name: "论文地图", href: "paper_maps.html" },
+    { name: "数据与任务", href: "dataTask.html" },
+    { name: "复现日志", href: "blog.html" },
     { name: "工具与Playground", href: "#tools" },
   ];
 
@@ -52,7 +52,7 @@ export default function App() {
     {
       title: "领域快讯",
       desc: "收集 VLA / 机器人学习 方向近期论文与项目动态（可选接入 RSS / GitHub Trending）。",
-      href: "#news",
+      href: "quick_news.html",
       icon: <Newspaper className="w-6 h-6" />,
       cta: "看看最新",
     },
@@ -178,7 +178,7 @@ export default function App() {
             <h2 className="text-2xl font-bold">论文地图</h2>
             <p className="text-slate-400 mt-1">按主题分区，点击进入子页（可后续补全）。</p>
           </div>
-          <a href="#" className="text-sm text-cyan-300 hover:underline">全部文章</a>
+          <a href="paper_map.html" className="text-sm text-cyan-300 hover:underline">全部文章</a>
         </div>
         <div className="mt-6 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
           {["Policy Learning", "Grounding & Segmentation", "Planning & CoT", "RAG for VLA", "Preference Alignment", "Open-World Generalization"].map((t) => (

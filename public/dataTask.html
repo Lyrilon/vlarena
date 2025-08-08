@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VLArena · 数据与任务管理</title>
+
+  <!-- Tailwind -->
+  <script>window.tailwind={config:{darkMode:'class'}};</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{color-scheme:light dark}
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji'}
+    .dragging{opacity:.5}
+    .modal-backdrop{background:rgba(0,0,0,.55)}
+  </style>
+
+  <script>
+    // 初始主题：localStorage > 系统 > 默认 dark
+    (function(){
+      const saved=localStorage.getItem('theme');
+      const prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', saved? saved==='dark' : (prefersDark||true));
+    })();
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.20),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.20),transparent_45%)]"></div>
+
+  <!-- 顶部导航：与站点一致 -->
+  <header class="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 bg-slate-900/80 border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2">
+        <span class="relative"><span class="absolute -inset-1 rounded-xl bg-cyan-500/30 blur-sm"></span><span class="relative rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-400 p-2 shadow-lg"><svg class="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v4h-2zM4.222 5.636l1.414-1.414 2.828 2.829-1.414 1.413zM3 11h4v2H3zM5.636 19.778l2.828-2.828 1.414 1.414-2.828 2.828zM11 17h2v4h-2zM16.122 18.364l1.414-1.414 2.829 2.828-1.415 1.415zM17 11h4v2h-4zM18.364 7.05l-1.414 1.415-2.828-2.829 1.414-1.414z"/></svg></span></span>
+        <span class="font-bold tracking-tight text-lg">VLArena</span>
+        <span class="text-xs text-slate-400 hidden sm:inline">Vision · Language · Action Lab</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-6 text-sm">
+        <a href="index.html" class="text-slate-300 hover:text-white">首页</a>
+        <a href="benchmark.html" class="text-slate-300 hover:text-white">Benchmark 榜单</a>
+        <a href="paper_map.html" class="text-slate-300 hover:text-white">论文地图</a>
+        <a href="datasets.html" class="text-slate-100">数据与任务</a>
+        <a href="repro.html" class="text-slate-300 hover:text-white">复现日志</a>
+        <a href="tools.html" class="text-slate-300 hover:text-white">工具与Playground</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">数据与任务 · 管理面板</h1>
+        <p class="mt-2 text-slate-300">集中管理 <span class="text-cyan-300 font-semibold">Benchmark</span> 与 <span class="text-indigo-300 font-semibold">Dataset</span> 卡片：支持新增/编辑/删除/拖拽排序、批量导入导出。</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="exportBtn" class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">导出 JSON</button>
+        <label class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm cursor-pointer">导入 JSON<input id="importInput" type="file" accept="application/json" class="hidden"/></label>
+        <button id="addCardBtn" class="rounded-xl px-3 py-1.5 bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-400/25 text-sm">新建卡片</button>
+      </div>
+    </div>
+
+    <!-- 过滤与搜索 -->
+    <section class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div class="grid md:grid-cols-3 gap-3 items-end">
+        <div>
+          <label class="text-xs text-slate-400">搜索（名称 / 标签 / 简介）</label>
+          <div class="mt-1 flex items-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-3 py-2">
+            <span class="text-slate-400">🔎</span>
+            <input id="searchInput" placeholder="如：LIBERO / BRIDGE / 机器人操作" class="bg-transparent outline-none w-full"/>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">类型</label>
+          <div class="mt-1 flex gap-2">
+            <select id="typeFilter" class="w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+              <option value="all">全部</option>
+              <option value="benchmark">Benchmark</option>
+              <option value="dataset">Dataset</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">标签（逗号分隔，模糊匹配）</label>
+          <input id="tagFilter" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="manipulation, language, sim2real"/>
+        </div>
+      </div>
+    </section>
+
+    <!-- 容器：卡片列表（可拖拽排序） -->
+    <section class="mt-6">
+      <div id="cards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      <div id="emptyState" class="hidden rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-400">暂无数据，点击右上角“新建卡片”或导入 JSON。</div>
+    </section>
+  </main>
+
+  <!-- 弹窗：新增 / 编辑卡片 -->
+  <div id="modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+    <div class="modal-backdrop absolute inset-0" data-dismiss></div>
+    <div class="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-6">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold" id="modalTitle">新建卡片</h3>
+        <button class="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10" data-dismiss>✕</button>
+      </div>
+      <form id="cardForm" class="mt-4 space-y-3">
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-400">类型</label>
+            <select name="type" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" required>
+              <option value="benchmark">Benchmark</option>
+              <option value="dataset">Dataset</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-xs text-slate-400">名称</label>
+            <input name="name" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="LIBERO / BRIDGE / CALVIN / RT-X" required />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">简介</label>
+          <textarea name="desc" rows="3" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="一句话说明数据/基准的特点"></textarea>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs text-slate-400">官网/主页链接</label>
+            <input name="homepage" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="https://..." />
+          </div>
+          <div>
+            <label class="text-xs text-slate-400">代码仓库（可选）</label>
+            <input name="repo" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="https://github.com/..." />
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">标签（逗号分隔）</label>
+          <input name="tags" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="manipulation, language, sim2real" />
+        </div>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10" data-dismiss>取消</button>
+          <button type="submit" class="rounded-xl px-3 py-1.5 bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-400/25">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <footer class="border-t border-white/10 py-8">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-slate-400 text-sm">
+      <div>© <span id="year"></span> VLArena · Vision · Language · Action Lab</div>
+      <div class="flex items-center gap-3">
+        <a class="hover:text-slate-200" href="benchmark.html">Benchmark 联合榜单</a>
+        <a class="hover:text-slate-200" href="paper_map.html">论文地图</a>
+        <a class="hover:text-slate-200" href="#">反馈</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ======= 数据层：localStorage 持久化 =======
+    const KEY='vlarena.cards.v1';
+    const seed=[
+      {id:crypto.randomUUID(), type:'benchmark', name:'LIBERO', desc:'多任务机器人操作基准：SPATIAL / OBJECT / GOAL / LONG', homepage:'https://lifelong-robot-learning.github.io/libero/', repo:'', tags:['manipulation','multi-task','sim']},
+      {id:crypto.randomUUID(), type:'benchmark', name:'BRIDGE', desc:'规模化模仿学习评测套件（v2 可扩展）', homepage:'https://rail-berkeley.github.io/bridge_data/', repo:'', tags:['imitation','cross-domain']},
+      {id:crypto.randomUUID(), type:'benchmark', name:'CALVIN', desc:'机械臂多任务、长目标序列', homepage:'https://calvin.cs.uni-freiburg.de/', repo:'', tags:['manipulation','long-horizon']},
+      {id:crypto.randomUUID(), type:'benchmark', name:'RT-X / Open-X', desc:'跨机器人/跨任务通用 BC 评测', homepage:'#', repo:'', tags:['rtx','generalization']},
+      {id:crypto.randomUUID(), type:'dataset', name:'Open-X Data', desc:'开源多机器人数据合集', homepage:'#', repo:'', tags:['multi-robot']},
+      {id:crypto.randomUUID(), type:'dataset', name:'RLAIF-Human', desc:'人类偏好/反馈数据', homepage:'#', repo:'', tags:['preference','rlaif']}
+    ];
+    function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || seed }catch{ return seed } }
+    function save(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
+
+    // ======= 视图渲染 =======
+    const cardsEl=document.getElementById('cards');
+    const emptyEl=document.getElementById('emptyState');
+    let data=load();
+
+    function tagChip(t){ return `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg bg-white/5 border border-white/10">${t}</span>` }
+
+    function render(list=data){
+      cardsEl.innerHTML='';
+      if(!list.length){ emptyEl.classList.remove('hidden'); return } else emptyEl.classList.add('hidden');
+      list.forEach(item=>{
+        const card=document.createElement('div');
+        card.className='group rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition relative';
+        card.draggable=true; card.dataset.id=item.id;
+        card.innerHTML=`
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="text-xs ${item.type==='benchmark'?'text-cyan-300':'text-indigo-300'}">${item.type.toUpperCase()}</div>
+              <a href="${item.homepage||'#'}" target="_blank" class="mt-1 block font-semibold leading-snug">${item.name}</a>
+              <p class="mt-1 text-sm text-slate-300">${item.desc||''}</p>
+              <div class="mt-2 flex flex-wrap gap-1">${(item.tags||[]).map(tagChip).join('')}</div>
+            </div>
+            <div class="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+              ${item.repo?`<a href="${item.repo}" target="_blank" title="代码仓库" class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">Code</a>`:''}
+              <button data-edit class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">编辑</button>
+              <button data-del class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm text-red-300">删除</button>
+              <span class="cursor-move rounded-lg px-2 py-1 bg-white/5 border border-white/10 text-xs" title="拖拽排序">↕</span>
+            </div>
+          </div>`;
+        // 事件：编辑/删除
+        card.querySelector('[data-edit]')?.addEventListener('click',()=>openModal(item));
+        card.querySelector('[data-del]')?.addEventListener('click',()=>delCard(item.id));
+        // 拖拽
+        card.addEventListener('dragstart',e=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.id); });
+        card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+        cardsEl.appendChild(card);
+      });
+    }
+
+    // 拖拽排序容器逻辑
+    cardsEl.addEventListener('dragover',e=>{
+      e.preventDefault();
+      const dragging=document.querySelector('.dragging');
+      const after=getDragAfterElement(cardsEl, e.clientY);
+      if(after==null) cardsEl.appendChild(dragging); else cardsEl.insertBefore(dragging, after);
+    });
+    function getDragAfterElement(container, y){
+      const els=[...container.querySelectorAll('[draggable]:not(.dragging)')];
+      return els.reduce((closest,child)=>{
+        const box=child.getBoundingClientRect();
+        const offset=y - box.top - box.height/2;
+        if(offset<0 && offset>closest.offset){ return {offset, element:child} } else return closest;
+      }, {offset:Number.NEGATIVE_INFINITY}).element;
+    }
+
+    // 过滤
+    const searchInput=document.getElementById('searchInput');
+    const typeFilter=document.getElementById('typeFilter');
+    const tagFilter=document.getElementById('tagFilter');
+    function applyFilter(){
+      const q=(searchInput.value||'').toLowerCase();
+      const type=typeFilter.value; const tags=(tagFilter.value||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
+      const filtered=data.filter(it=>{
+        const text=(it.name+" "+(it.desc||'')+" "+(it.tags||[]).join(' ')).toLowerCase();
+        const okText = !q || text.includes(q);
+        const okType = type==='all' || it.type===type;
+        const okTags = !tags.length || tags.every(t=> (it.tags||[]).join(' ').toLowerCase().includes(t));
+        return okText && okType && okTags;
+      });
+      render(filtered);
+    }
+    searchInput.addEventListener('input',applyFilter);
+    typeFilter.addEventListener('change',applyFilter);
+    tagFilter.addEventListener('input',applyFilter);
+
+    // 新建/编辑
+    const modal=document.getElementById('modal');
+    const form=document.getElementById('cardForm');
+    const modalTitle=document.getElementById('modalTitle');
+    let editingId=null;
+    function openModal(item){
+      editingId=item?.id||null; modalTitle.textContent= editingId? '编辑卡片' : '新建卡片';
+      form.type.value=item?.type||'benchmark';
+      form.name.value=item?.name||''; form.desc.value=item?.desc||'';
+      form.homepage.value=item?.homepage||''; form.repo.value=item?.repo||'';
+      form.tags.value=(item?.tags||[]).join(', ');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
+    }
+    function closeModal(){ modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    document.querySelectorAll('[data-dismiss]').forEach(el=> el.addEventListener('click', closeModal));
+    document.getElementById('addCardBtn').addEventListener('click',()=>openModal(null));
+
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      const payload={
+        id: editingId || crypto.randomUUID(),
+        type: form.type.value,
+        name: form.name.value.trim(),
+        desc: form.desc.value.trim(),
+        homepage: form.homepage.value.trim(),
+        repo: form.repo.value.trim(),
+        tags: (form.tags.value||'').split(',').map(s=>s.trim()).filter(Boolean)
+      };
+      if(!payload.name){ alert('名称必填'); return }
+      if(editingId){ data=data.map(d=> d.id===editingId? payload : d); }
+      else{ data=[payload, ...data]; }
+      save(data); applyFilter(); closeModal();
+    });
+
+    function delCard(id){ if(confirm('确定删除该卡片？')){ data=data.filter(d=>d.id!==id); save(data); applyFilter(); } }
+
+    // 导出/导入
+    document.getElementById('exportBtn').addEventListener('click',()=>{
+      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download='vlarena_datasets.json'; a.click(); URL.revokeObjectURL(url);
+    });
+    document.getElementById('importInput').addEventListener('change',async (e)=>{
+      const file=e.target.files?.[0]; if(!file) return; try{
+        const text=await file.text(); const json=JSON.parse(text);
+        if(!Array.isArray(json)) throw new Error('JSON 顶层应为数组');
+        // 简单校验（测试用例）
+        const ok=json.every(x=> x && typeof x.name==='string' && (x.type==='benchmark'||x.type==='dataset'));
+        if(!ok) throw new Error('元素必须包含 name 且 type ∈ {benchmark,dataset}');
+        data=json.map(x=> ({ id:x.id||crypto.randomUUID(), type:x.type, name:x.name, desc:x.desc||'', homepage:x.homepage||'', repo:x.repo||'', tags:Array.isArray(x.tags)?x.tags:[] }));
+        save(data); applyFilter(); alert('导入成功：'+data.length+' 条');
+      }catch(err){ alert('导入失败：'+err.message); }
+      e.target.value='';
+    });
+
+    // 初始渲染
+    document.getElementById('year').textContent=new Date().getFullYear();
+    applyFilter();
+
+    // ===== 简单测试（不会阻断页面） =====
+    (function tests(){
+      const t1 = Array.isArray(load());
+      console.assert(t1, '[TEST] 初始数据应为数组');
+      const sample={id:crypto.randomUUID(),type:'dataset',name:'_T',desc:'',homepage:'#',repo:'',tags:[]};
+      save([sample]); const t2 = load()[0].name==='_T';
+      console.assert(t2, '[TEST] 保存/加载 round-trip');
+      save(data); // 还原
+    })();
+  </script>
+</body>
+</html>

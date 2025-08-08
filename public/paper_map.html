@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VLArena · Paper Atlas（无构建版）</title>
+
+  <!-- Tailwind CDN -->
+  <script>window.tailwind={config:{darkMode:'class'}};</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{color-scheme:light dark}
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji'}
+    .modal-backdrop{background-color:rgba(0,0,0,.55)}
+  </style>
+
+  <!-- React / ReactDOM / Babel（在浏览器里把 JSX 编译为 JS） -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Recharts UMD：添加“双CDN + 兜底加载”，避免某些环境阻断导致的 Recharts 未定义 -->
+  <script>
+    (function ensureRecharts(){
+      function load(src, cb){ var s=document.createElement('script'); s.src=src; s.onload=cb; s.onerror=cb; document.head.appendChild(s); }
+      // 先尝试 jsDelivr，失败再退回 unpkg
+      if(!window.Recharts){
+        load('https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js', function(){
+          if(!window.Recharts){
+            load('https://unpkg.com/recharts/umd/Recharts.min.js', function(){ /* 最后一次尝试 */ });
+          }
+        });
+      }
+    })();
+  </script>
+
+  <script>
+    // 主题：localStorage > 系统偏好 > 默认 dark
+    (function(){
+      const saved=localStorage.getItem('theme');
+      const prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const useDark=saved? saved==='dark' : (prefersDark||true);
+      document.documentElement.classList.toggle('dark',useDark);
+    })();
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.20),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.20),transparent_45%)]"></div>
+
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // ===== 运行时自检（"测试用例"）======
+    function assert(cond, msg){ if(!cond) console.error('[PaperAtlas TEST]', msg); return !!cond; }
+    const TESTS = [
+      ()=>assert(!!window.React, 'React 未加载'),
+      ()=>assert(!!window.ReactDOM, 'ReactDOM 未加载'),
+      ()=>assert(typeof window.Babel === 'object', 'Babel 未加载'),
+      ()=>assert(true, '占位测试：始终通过')
+    ];
+    const ALL_OK = TESTS.every(fn=>fn());
+
+    const { useMemo, useState, useEffect } = React;
+
+    const TOPICS=["Policy Learning","Grounding","Planning / CoT","RAG for VLA","Preference Alignment","Open-World Generalization"];
+    const VENUES=["ICLR","ICML","NeurIPS","CoRL","RSS","CVPR","ECCV","IJRR","arXiv"];
+
+    const papersSeed=Array.from({length:24}).map((_,i)=>{
+      const year=2019+(i%7); const topic=TOPICS[i%TOPICS.length]; const venue=VENUES[(i*3)%VENUES.length];
+      return { id:`VLA-${i+1}`, title:`占位论文标题 #${i+1}: ${topic}`, year, venue, topic,
+        authors:["A. Author","B. Author","C. Author"].slice(0,(i%3)+1), pdfUrl:'#', codeUrl:'#', projectUrl:'#',
+        impact:["Benchmark","System","Method","Survey"][i%4],
+        summary:"这是占位摘要。你可以替换成真实论文内容（方法、实验、结论等）。",
+        tags:["robotics","manipulation","vision-language","LLM"].slice(0,(i%4)+1)
+      }
+    });
+
+    function buildTimelineSeries(papers, topics){
+      const years=[...new Set(papers.map(p=>p.year))].sort((a,b)=>a-b);
+      return years.map(y=>{
+        const row={year:y};
+        topics.forEach(t=>row[t]=papers.filter(p=>p.year===y && p.topic===t).length);
+        row.total=papers.filter(p=>p.year===y).length; return row;
+      });
+    }
+
+    const IconSparkles = () => (
+      <svg className="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v4h-2zM4.222 5.636l1.414-1.414 2.828 2.829-1.414 1.413zM3 11h4v2H3zM5.636 19.778l2.828-2.828 1.414 1.414-2.828 2.828zM11 17h2v4h-2zM16.122 18.364l1.414-1.414 2.829 2.828-1.415 1.415zM17 11h4v2h-4zM18.364 7.05l-1.414 1.415-2.828-2.829 1.414-1.414z"/></svg>
+    );
+
+    const Tag=({children})=> (
+      <span className="inline-flex items-center gap-1 rounded-xl px-2 py-1 text-xs bg-white/5 border border-white/10">{children}</span>
+    );
+
+    // 独立的时间线图表组件：在内部按需读取 window.Recharts，若不可用则给出优雅降级
+    function TimelineChart({ data, topics }){
+      const R = window.Recharts; // 不在模块顶层引用，避免 Recharts 未定义时报错
+      if(!R){
+        return (
+          <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-sm text-amber-300">
+            ⚠️ 无法加载图表库（Recharts）。已降级为文本视图。请检查网络/CDN 或允许外部脚本。
+            <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-slate-200">
+              {data.map(row => (
+                <div key={row.year} className="rounded-lg bg-white/5 px-3 py-2">
+                  <div className="text-xs text-slate-400">{row.year}</div>
+                  <div className="mt-1 text-sm">Total: <span className="font-semibold text-cyan-300">{row.total}</span></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      }
+      const { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = R;
+      return (
+        <div className="mt-3 h-60">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+              <CartesianGrid opacity={0.2} vertical={false} />
+              <XAxis dataKey="year" stroke="currentColor" opacity={0.7} />
+              <YAxis stroke="currentColor" opacity={0.7} />
+              <Tooltip contentStyle={{ background: 'rgba(15,23,42,0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12 }} labelStyle={{ color: '#e2e8f0' }} />
+              <Legend />
+              {topics.map(t=> (
+                <Area key={t} type="monotone" dataKey={t} stackId="1" fillOpacity={0.35} strokeOpacity={0.9} />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      );
+    }
+
+    function PaperModal({open,onClose,paper}){
+      return (
+        <div className={"fixed inset-0 z-50 "+(open?"flex":"hidden")+" items-center justify-center p-4"}>
+          <div className="modal-backdrop absolute inset-0" onClick={onClose}></div>
+          <div className="relative w-full max-w-3xl rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-6">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <h3 className="text-xl font-semibold leading-snug">{paper?.title}</h3>
+                <p className="mt-1 text-sm text-slate-300">{paper?.authors?.join(', ')}</p>
+                <div className="mt-2 text-sm text-slate-400">{paper?.venue} · {paper?.year} · {paper?.impact}</div>
+              </div>
+              <button className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10" onClick={onClose}>✕</button>
+            </div>
+            <p className="mt-4 text-slate-200 leading-relaxed">{paper?.summary}</p>
+            <div className="mt-4 flex flex-wrap gap-2">{paper?.tags?.map(t=> <Tag key={t}>{t}</Tag>)}</div>
+            <div className="mt-6 flex flex-wrap gap-3 text-sm">
+              <a href={paper?.pdfUrl} target="_blank" className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10">PDF</a>
+              <a href={paper?.codeUrl} target="_blank" className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10">Code</a>
+              <a href={paper?.projectUrl} target="_blank" className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10">Project</a>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function App(){
+      const [query,setQuery]=useState("");
+      const [yearMin,setYearMin]=useState(2019);
+      const [yearMax,setYearMax]=useState(2025);
+      const [topicSelected,setTopicSelected]=useState(new Set(TOPICS));
+      const [playing,setPlaying]=useState(false);
+      const [focusYear,setFocusYear]=useState(null);
+      const [openPaper,setOpenPaper]=useState(null);
+
+      const papers=useMemo(()=>papersSeed,[]);
+      const filtered=useMemo(()=>papers.filter(p=>
+        p.year>=yearMin && p.year<=yearMax && topicSelected.has(p.topic) &&
+        (query.trim()==="" || p.title.toLowerCase().includes(query.toLowerCase()) ||
+         p.authors.join(" ").toLowerCase().includes(query.toLowerCase()) ||
+         p.venue.toLowerCase().includes(query.toLowerCase()))
+      ),[papers,yearMin,yearMax,topicSelected,query]);
+
+      const timelineData=useMemo(()=>buildTimelineSeries(filtered,TOPICS),[filtered]);
+
+      useEffect(()=>{
+        if(!playing) return; let i=0;
+        const years=[...new Set(filtered.map(p=>p.year))].sort((a,b)=>a-b); if(years.length===0) return;
+        const t=setInterval(()=>{ setFocusYear(years[i%years.length]); i++; },1200);
+        return ()=>clearInterval(t);
+      },[playing,filtered]);
+
+      function toggleTopic(t){ const next=new Set(topicSelected); next.has(t)?next.delete(t):next.add(t); setTopicSelected(next); }
+
+      const rechartsReady = !!window.Recharts;
+
+      return (
+        <div>
+          {/* 顶部导航 */}
+          <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 bg-slate-900/80 border-b border-white/10">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
+              <a href="/" className="flex items-center gap-2">
+                <span className="relative">
+                  <span className="absolute -inset-1 rounded-xl bg-cyan-500/30 blur-sm"></span>
+                  <span className="relative rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-400 p-2 shadow-lg"><IconSparkles/></span>
+                </span>
+                <span className="font-bold tracking-tight text-lg">VLArena</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">Vision · Language · Action Lab</span>
+              </a>
+              <nav className="hidden md:flex items-center gap-6 text-sm">
+                <a href="/benchmark.html" className="text-slate-300 hover:text-white transition-colors">Benchmark 榜单</a>
+              </nav>
+            </div>
+          </header>
+
+          <main className="mx-auto max-w-7xl px-4 sm:px-6 py-10">
+            {/* 环境检测条 */}
+            <div className={"rounded-xl border px-3 py-2 text-xs " + (rechartsReady? 'border-white/10 bg-white/5 text-slate-300' : 'border-amber-400/40 bg-amber-400/10 text-amber-200')}>
+              {rechartsReady ? '✅ Recharts 已加载，图表功能可用。' : '⚠️ 未能加载 Recharts，已降级为文本视图。若你在内网/有 CSP 限制，请改用本地 UMD 包或允许 jsDelivr/unpkg。'}
+            </div>
+
+            <div className="flex items-end justify-between gap-4 mt-4">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">VLA 论文地图（Paper Atlas）</h1>
+                <p className="mt-2 text-slate-300">可视化回顾 VLA 研究的发展脉络，支持检索、筛选、分面与年度演进。</p>
+              </div>
+              <a href="#" className="text-sm text-cyan-300 hover:underline">数据模板下载</a>
+            </div>
+
+            {/* 控制面板 */}
+            <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div>
+                  <label className="text-xs text-slate-400">全文搜索（标题 / 作者 / 会议）</label>
+                  <div className="mt-1 flex items-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-3 py-2">
+                    <span className="text-slate-400">🔎</span>
+                    <input value={query} onChange={e=>setQuery(e.target.value)} placeholder="如：OpenVLA, π₀, planning" className="bg-transparent outline-none w-full"/>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">年份范围</label>
+                  <div className="mt-1 flex items-center gap-3">
+                    <input type="range" min={2015} max={2026} value={yearMin} onChange={e=>setYearMin(+e.target.value)} className="w-full"/>
+                    <input type="range" min={2015} max={2026} value={yearMax} onChange={e=>setYearMax(+e.target.value)} className="w-full"/>
+                  </div>
+                  <div className="mt-1 text-xs text-slate-300">{yearMin} — {yearMax}</div>
+                </div>
+                <div className="lg:col-span-2">
+                  <label className="text-xs text-slate-400">主题筛选</label>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {TOPICS.map(t=> (
+                      <button key={t} onClick={()=>toggleTopic(t)} className={(topicSelected.has(t)?'bg-cyan-500/20 border-cyan-400/40':'bg-white/5 border-white/10 hover:bg-white/10')+" inline-flex items-center gap-1 rounded-2xl px-3 py-1.5 border"}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 时间线 */}
+            <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-300">📅 年度论文产出</div>
+                <button onClick={()=>setPlaying(p=>!p)} className="text-sm inline-flex items-center gap-2 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">{playing? '暂停演进 ⏸' : '播放演进 ▶️'}</button>
+              </div>
+              <TimelineChart data={timelineData} topics={TOPICS} />
+              {focusYear && <div className="mt-2 text-xs text-slate-300">当前聚焦年份：<span className="font-semibold text-cyan-300">{focusYear}</span></div>}
+            </section>
+
+            {/* 列表 */}
+            <section className="mt-6">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-slate-300">📚 论文列表（{filtered.length}）</div>
+                <a href="#" className="text-sm text-cyan-300 hover:underline">导出为 CSV →</a>
+              </div>
+              <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filtered.map(p=> (
+                  <div key={p.id} className={(focusYear && p.year===focusYear? 'ring-1 ring-cyan-400/40 ':'')+" rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"}>
+                    <div className="text-xs text-slate-400 flex items-center gap-2"><span>📅 {p.year}</span><span>·</span><span>{p.venue}</span></div>
+                    <h3 className="mt-1 font-semibold leading-snug line-clamp-2">{p.title}</h3>
+                    <div className="mt-1 text-xs text-slate-400 line-clamp-1">{p.authors.join(', ')}</div>
+                    <div className="mt-2 flex flex-wrap gap-2"><Tag>{p.topic}</Tag><Tag>{p.impact}</Tag></div>
+                    <div className="mt-3 flex items-center gap-2 text-sm">
+                      <button onClick={()=>setOpenPaper(p)} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">详情 →</button>
+                      <a href={p.pdfUrl} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">PDF</a>
+                      <a href={p.codeUrl} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">Code</a>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </main>
+
+          <footer className="border-t border-white/10 py-8">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-slate-400 text-sm">
+              <div>© {new Date().getFullYear()} VLArena · Vision · Language · Action Lab</div>
+              <div className="flex items-center gap-3">
+                <a className="hover:text-slate-200" href="/benchmark.html">Benchmark 联合榜单</a>
+                <a className="hover:text-slate-200" href="#">关于</a>
+                <a className="hover:text-slate-200" href="#">反馈</a>
+              </div>
+            </div>
+          </footer>
+
+          <PaperModal open={!!openPaper} onClose={()=>setOpenPaper(null)} paper={openPaper} />
+        </div>
+      );
+    }
+
+    const root=ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App/>);
+  </script>
+</body>
+</html>

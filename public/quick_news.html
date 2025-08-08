@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VLArena · 领域快讯（Vision-Language-Action News）</title>
+
+  <!-- Tailwind -->
+  <script>window.tailwind={config:{darkMode:'class'}};</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{color-scheme:light dark}
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji'}
+    .modal-backdrop{background:rgba(0,0,0,.55)}
+    /* 手风琴动画 */
+    .accordion{overflow:hidden; transition:max-height .3s ease, opacity .25s ease;}
+    .accordion[aria-hidden="true"]{max-height:0; opacity:0}
+    .accordion[aria-hidden="false"]{max-height:480px; opacity:1}
+    .tag{display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .5rem;border-radius:.6rem;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);font-size:.75rem}
+  </style>
+  <script>
+    // 初始主题：localStorage > 系统偏好 > 默认 dark
+    (function(){
+      const saved=localStorage.getItem('theme');
+      const prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', saved? saved==='dark' : (prefersDark||true));
+    })();
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.20),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.20),transparent_45%)]"></div>
+
+  <!-- 顶部导航：与全站一致 -->
+  <header class="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 bg-slate-900/80 border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2">
+        <span class="relative"><span class="absolute -inset-1 rounded-xl bg-cyan-500/30 blur-sm"></span><span class="relative rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-400 p-2 shadow-lg"><svg class="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v4h-2zM4.222 5.636l1.414-1.414 2.828 2.829-1.414 1.413zM3 11h4v2H3zM5.636 19.778l2.828-2.828 1.414 1.414-2.828 2.828zM11 17h2v4h-2zM16.122 18.364l1.414-1.414 2.829 2.828-1.415 1.415zM17 11h4v2h-4zM18.364 7.05l-1.414 1.415-2.828-2.829 1.414-1.414z"/></svg></span></span>
+        <span class="font-bold tracking-tight text-lg">VLArena</span>
+        <span class="text-xs text-slate-400 hidden sm:inline">Vision · Language · Action Lab</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-6 text-sm">
+        <a href="index.html" class="text-slate-300 hover:text-white">首页</a>
+        <a href="benchmark.html" class="text-slate-300 hover:text-white">Benchmark 榜单</a>
+        <a href="paper_map.html" class="text-slate-300 hover:text-white">论文地图</a>
+        <a href="datasets.html" class="text-slate-300 hover:text-white">数据与任务</a>
+        <a href="repro.html" class="text-slate-300 hover:text-white">复现日志</a>
+        <a href="news.html" class="text-slate-100">领域快讯</a>
+        <a href="tools.html" class="text-slate-300 hover:text-white">工具与Playground</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 py-8">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">领域快讯 · VLA News</h1>
+        <p class="mt-2 text-slate-300">聚合 arXiv / GitHub / 论坛等来源，追踪 Vision‑Language‑Action 最新进展。支持展开摘要、收藏、标记已读、导入导出。</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="refreshBtn" class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">模拟拉取</button>
+        <button id="exportBtn" class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">导出 JSON</button>
+        <label class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm cursor-pointer">导入 JSON<input id="importInput" type="file" accept="application/json" class="hidden"/></label>
+      </div>
+    </div>
+
+    <!-- 过滤栏 -->
+    <section class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+      <div class="grid md:grid-cols-4 gap-3 items-end">
+        <div>
+          <label class="text-xs text-slate-400">搜索（标题 / 来源 / 标签）</label>
+          <div class="mt-1 flex items-center gap-2 rounded-2xl bg-white/5 border border-white/10 px-3 py-2">
+            <span class="text-slate-400">🔎</span>
+            <input id="searchInput" placeholder="如：OpenVLA / manipulation / RT-X" class="bg-transparent outline-none w-full"/>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">来源</label>
+          <select id="sourceFilter" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2">
+            <option value="all">全部</option>
+            <option>arXiv</option>
+            <option>GitHub</option>
+            <option>Forum</option>
+            <option>Conference</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">仅看收藏 / 未读</label>
+          <div class="mt-1 flex items-center gap-3 text-sm">
+            <label class="inline-flex items-center gap-2"><input id="favOnly" type="checkbox" class="rounded"/> 收藏</label>
+            <label class="inline-flex items-center gap-2"><input id="unreadOnly" type="checkbox" class="rounded"/> 未读</label>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">时间范围（近 N 天）</label>
+          <div class="mt-1 flex items-center gap-2">
+            <input id="daysRange" type="range" min="1" max="60" value="14" class="w-full"/>
+            <span id="daysLabel" class="text-xs text-slate-300 whitespace-nowrap">14 天</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 列表 -->
+    <section class="mt-6 space-y-3" id="newsList"></section>
+
+    <!-- 空态 -->
+    <div id="emptyState" class="hidden mt-6 rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-400">暂无符合条件的消息</div>
+  </main>
+
+  <footer class="border-t border-white/10 py-8">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-slate-400 text-sm">
+      <div>© <span id="year"></span> VLArena · Vision · Language · Action Lab</div>
+      <div class="flex items-center gap-3">
+        <a class="hover:text-slate-200" href="benchmark.html">Benchmark 联合榜单</a>
+        <a class="hover:text-slate-200" href="paper_map.html">论文地图</a>
+        <a class="hover:text-slate-200" href="#">关于</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ===== 数据模型 =====
+    const KEY='vlarena.news.v1';
+    const now=Date.now();
+    const seed=[
+      {id:crypto.randomUUID(), title:'OpenVLA-OFT：在 LIBERO LONG 上逼近 SOTA', source:'arXiv', url:'#', date: now-2*86400000, tags:['OpenVLA','LIBERO','OFT'], summary:'提出开环示教 + 离线微调（OFT）策略，在长链路任务上提升显著。', content:'方法核心是…', fav:false, read:false},
+      {id:crypto.randomUUID(), title:'π₀ + FAST 新实践：桥接任务更稳', source:'Forum', url:'#', date: now-1*86400000, tags:['π₀','FAST','BRIDGE'], summary:'社区分享了一套更稳的 FAST 推理超参与数据清洗脚本。', content:'建议 top‑p=0.9, T=0.7…', fav:true, read:false},
+      {id:crypto.randomUUID(), title:'SpatialVLA: 更强的空间对齐', source:'Conference', url:'#', date: now-9*86400000, tags:['Spatial','Grounding'], summary:'在 CALVIN 上 SR(Unseen) 提升 ~+2%。', content:'通过空间引导的注意力…', fav:false, read:true},
+      {id:crypto.randomUUID(), title:'RT-X/Open-X 数据更新', source:'GitHub', url:'#', date: now-5*86400000, tags:['RT-X','Open-X','dataset'], summary:'新增跨机器人序列，提供更丰富的泛化评测样本。', content:'本次更新包括…', fav:false, read:false}
+    ];
+
+    function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || seed }catch{ return seed } }
+    function save(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
+
+    // ===== 视图/状态 =====
+    const listEl=document.getElementById('newsList');
+    const emptyEl=document.getElementById('emptyState');
+    const searchInput=document.getElementById('searchInput');
+    const sourceFilter=document.getElementById('sourceFilter');
+    const favOnly=document.getElementById('favOnly');
+    const unreadOnly=document.getElementById('unreadOnly');
+    const daysRange=document.getElementById('daysRange');
+    const daysLabel=document.getElementById('daysLabel');
+
+    let data=load();
+
+    function withinDays(ts, days){ return (now - ts) <= days*86400000; }
+
+    function render(items=data){
+      listEl.innerHTML='';
+      if(!items.length){ emptyEl.classList.remove('hidden'); return } else emptyEl.classList.add('hidden');
+
+      // 置顶收藏在前，然后按时间倒序
+      items.sort((a,b)=> (b.fav - a.fav) || (b.date - a.date));
+
+      items.forEach(item=>{
+        const card=document.createElement('article');
+        card.className='rounded-2xl border border-white/10 bg-white/5 p-4';
+        const dateStr=new Date(item.date).toLocaleString();
+        const tagHtml=(item.tags||[]).map(t=>`<span class="tag">#${t}</span>`).join(' ');
+        const readCls=item.read? 'opacity-60' : '';
+        card.innerHTML=`
+          <header class="flex items-start justify-between gap-3 ${readCls}">
+            <div class="min-w-0">
+              <div class="text-xs text-slate-400">${item.source} · <time>${dateStr}</time></div>
+              <h3 class="mt-1 font-semibold leading-snug line-clamp-2">${item.title}</h3>
+              <p class="mt-1 text-sm text-slate-300 line-clamp-2">${item.summary||''}</p>
+              <div class="mt-2 flex flex-wrap gap-1">${tagHtml}</div>
+            </div>
+            <div class="shrink-0 flex items-center gap-2">
+              <button class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs" data-toggle>展开</button>
+              <a href="${item.url}" target="_blank" class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs">链接</a>
+              <button class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs ${item.fav?'text-cyan-300':''}" data-fav>收藏</button>
+              <button class="px-2 py-1 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 text-xs" data-read>${item.read?'未读':'已读'}</button>
+            </div>
+          </header>
+          <section class="accordion mt-3 ${item.read? 'opacity-60' : ''}" aria-hidden="true">
+            <div class="text-sm text-slate-200 whitespace-pre-wrap">${item.content||'（暂无详细内容）'}</div>
+          </section>
+        `;
+
+        const acc=card.querySelector('.accordion');
+        const btnToggle=card.querySelector('[data-toggle]');
+        const btnFav=card.querySelector('[data-fav]');
+        const btnRead=card.querySelector('[data-read]');
+
+        btnToggle.addEventListener('click',()=>{
+          const hidden=acc.getAttribute('aria-hidden')==='true';
+          acc.setAttribute('aria-hidden', hidden?'false':'true');
+          btnToggle.textContent= hidden? '收起' : '展开';
+          // 标记为已读
+          if(hidden && !item.read){ item.read=true; save(data); render(applyFilter(true)); }
+        });
+        btnFav.addEventListener('click',()=>{ item.fav=!item.fav; save(data); render(applyFilter(true)); });
+        btnRead.addEventListener('click',()=>{ item.read=!item.read; save(data); render(applyFilter(true)); });
+
+        listEl.appendChild(card);
+      });
+    }
+
+    function applyFilter(skipRender){
+      const q=(searchInput.value||'').toLowerCase();
+      const src=sourceFilter.value; const days=+daysRange.value; const onlyFav=favOnly.checked; const onlyUnread=unreadOnly.checked;
+      daysLabel.textContent=days+' 天';
+      const filtered=data.filter(it=>{
+        const text=(it.title+' '+(it.summary||'')+' '+(it.tags||[]).join(' ')+' '+it.source).toLowerCase(
