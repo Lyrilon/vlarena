@@ -6,7 +6,7 @@ export default function App() {
 
   const nav = [
     { name: "首页", href: "#" },
-    { name: "Benchmark 榜单", href: "leaderboard.html" },
+    { name: "Benchmark 榜单", href: "benchmark.html" },
     { name: "论文地图", href: "#papers" },
     { name: "数据与任务", href: "#datasets" },
     { name: "复现日志", href: "#repro" },
@@ -17,7 +17,7 @@ export default function App() {
     {
       title: "VLA Benchmark 联合榜单",
       desc: "综合对比各类 VLA 模型在多项基准（LIBERO / BRIDGE / CALVIN / RT-X 等）上的成功率表现，点击进入查看详细榜单与分析。",
-      href: "leaderboard.html",
+      href: "benchmark.html",
       icon: <LineChart className="w-6 h-6" />,
       cta: "查看榜单",
     },
