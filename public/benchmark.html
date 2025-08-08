@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VLArena · Benchmark 联合榜单</title>
+
+  <!-- Tailwind CDN（开启 class 暗色模式） -->
+  <script>
+    window.tailwind = { config: { darkMode: 'class' } }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; }
+    .modal-backdrop { background-color: rgba(0,0,0,0.5); }
+    .loader { border-top-color: #22d3ee; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+
+  <script>
+    // 初始化主题：localStorage > 系统偏好 > 默认 dark
+    (function () {
+      const saved = localStorage.getItem('theme')
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+      const useDark = saved ? saved === 'dark' : (prefersDark || true)
+      document.documentElement.classList.toggle('dark', useDark)
+    })()
+  </script>
+</head>
+<body class="min-h-dvh bg-gradient-to-b from-slate-50 to-slate-100 text-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-slate-100">
+  <!-- 顶部导航 -->
+  <header class="sticky top-0 z-30 backdrop-blur bg-white/70 dark:bg-slate-900/70 border-b border-black/10 dark:border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <span class="relative rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-400 p-2 shadow">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v4h-2zM4.222 5.636l1.414-1.414 2.828 2.829-1.414 1.413zM3 11h4v2H3zM5.636 19.778l2.828-2.828 1.414 1.414-2.828 2.828zM11 17h2v4h-2zM16.122 18.364l1.414-1.414 2.829 2.828-1.415 1.415zM17 11h4v2h-4zM18.364 7.05l-1.414 1.415-2.828-2.829 1.414-1.414z"/></svg>
+        </span>
+        <span class="font-bold tracking-tight text-lg">VLArena</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400 hidden sm:inline">Vision · Language · Action Lab</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-4 text-sm">
+        <a href="/" class="hover:underline">首页</a>
+        <a href="/repro" class="hover:underline">复现日志</a>
+        <a href="/playground" class="hover:underline">实验台</a>
+        <button id="theme-toggle" class="p-2 rounded-xl border border-black/10 dark:border-white/10 bg-white/60 dark:bg-white/5" title="切换主题">
+          <span id="theme-icon"></span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.18),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.18),transparent_45%)]"></div>
+
+  <main class="mx-auto max-w-7xl px-4 sm:px-6 py-10">
+    <div class="flex items-end justify-between gap-4">
+      <div>
+        <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">Benchmark 联合榜单</h1>
+        <p class="mt-2 text-slate-600 dark:text-slate-400">集中浏览常用基准（LIBERO / BRIDGE / CALVIN / RT-X / Open-X ...）的模型表现与对比</p>
+      </div>
+      <a href="/" class="text-sm text-cyan-600 dark:text-cyan-300 hover:underline">返回首页</a>
+    </div>
+
+    <!-- 联合列表容器 -->
+    <div id="bench-list" class="mt-6 space-y-4"></div>
+
+    <footer class="text-center mt-10 text-sm text-slate-600 dark:text-slate-400">用于展示</footer>
+  </main>
+
+  <!-- Modal：阅读笔记（沿用你的实现） -->
+  <div id="notes-modal" class="fixed inset-0 z-50 items-center justify-center hidden p-4">
+    <div class="modal-backdrop fixed inset-0 transition-opacity"></div>
+    <div class="bg-white dark:bg-slate-900 rounded-lg shadow-xl w-full max-w-2xl mx-auto z-10 transform transition-all scale-95 opacity-0 border border-black/10 dark:border-white/10">
+      <div class="px-6 py-4 border-b border-black/10 dark:border-white/10">
+        <h3 class="text-xl font-semibold" id="modal-title">阅读笔记</h3>
+      </div>
+      <div class="p-6">
+        <div id="modal-content" class="text-base leading-relaxed text-slate-700 dark:text-slate-300 min-h-36">
+          <div id="loader" class="flex justify-center items-center h-full">
+            <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 dark:border-slate-700 h-12 w-12"></div>
+          </div>
+        </div>
+      </div>
+      <div class="px-6 py-4 bg-black/[0.03] dark:bg-white/5 rounded-b-lg text-right border-t border-black/10 dark:border-white/10">
+        <button id="close-modal-btn" class="px-4 py-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 border border-black/10 dark:border-white/10">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 主题切换按钮
+    const themeBtn = document.getElementById('theme-toggle')
+    const themeIcon = document.getElementById('theme-icon')
+    function renderThemeIcon() {
+      const isDark = document.documentElement.classList.contains('dark')
+      themeIcon.innerHTML = isDark
+        ? '<svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v2m6.364.636-1.414 1.414M21 12h-2m-1.222 6.364-1.414-1.414M12 19v2M6.05 17.95l-1.414 1.414M5 12H3m3.05-5.95L4.636 4.636M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0Z"/></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" class="size-4" viewBox="0 0 24 24" fill="currentColor"><path d="M21.64 13a9 9 0 1 1-10.63-10.6 1 1 0 0 1 1.11 1.45A7 7 0 1 0 20.19 12a1 1 0 0 1 1.45 1.11Z"/></svg>'
+    }
+    themeBtn?.addEventListener('click', () => {
+      const next = !document.documentElement.classList.contains('dark')
+      document.documentElement.classList.toggle('dark', next)
+      localStorage.setItem('theme', next ? 'dark' : 'light')
+      renderThemeIcon()
+    })
+    renderThemeIcon()
+
+    // ==================== 数据定义 ====================
+    // 说明：每个 benchmark 定义自己的列（columns）与数据（rows）。如果某列是百分比，写字符串百分比（如 '96.8%'）。
+    const benchmarks = [
+      {
+        id: 'libero',
+        name: 'LIBERO',
+        desc: '多任务机器人操作基准，包含 SPATIAL / OBJECT / GOAL / LONG 四类任务维度。',
+        columns: ['Method', 'SPATIAL', 'OBJECT', 'GOAL', 'LONG', 'Average', 'Link', 'Actions'],
+        rows: [
+          { name: 'Diffusion Policy (scratch) [5, 17]', spatial: '78.3%', object: '92.5%', goal: '68.3%', long: '50.5%', average: '72.4%', link: '#' },
+          { name: 'Octo (fine-tuned) [49, 62]', spatial: '78.9%', object: '85.7%', goal: '84.6%', long: '51.1%', average: '75.1%', link: '#' },
+          { name: 'OpenVLA (fine-tuned) [23, 42]', spatial: '84.7%', object: '88.4%', goal: '79.2%', long: '53.7%', average: '76.5%', link: '#' },
+          { name: 'SpatialVLA [59]', spatial: '88.2%', object: '89.9%', goal: '78.6%', long: '55.5%', average: '78.1%', link: '#' },
+          { name: 'CoT-VLA [75]', spatial: '87.5%', object: '91.6%', goal: '87.6%', long: '69.0%', average: '81.1%', link: '#' },
+          { name: 'DIT Policy (fine-tuned) [13]', spatial: '84.2%', object: '96.3%', goal: '85.4%', long: '63.8%', average: '82.4%', link: '#' },
+          { name: 'π₀ + FAST (fine-tuned) [38, 58]', spatial: '96.4%', object: '96.8%', goal: '88.6%', long: '60.2%', average: '85.5%', link: '#' },
+          { name: 'OpenVLA (fine-tuned) + PD&AC', spatial: '91.3%', object: '92.7%', goal: '90.5%', long: '86.5%', average: '90.2%', link: '#' },
+          { name: 'UniVLA (复现)', spatial: '94.8%', object: '97.2%', goal: '90.6%', long: '92.4%', average: '93.8%', link: '#' },
+          { name: 'π₀ (fine-tuned) [3]', spatial: '96.8%', object: '98.8%', goal: '95.8%', long: '85.2%', average: '94.2%', link: '#' },
+          { name: 'OpenVLA (fine-tuned) + PD&AC, Cont-Diffusion', spatial: '96.9%', object: '98.1%', goal: '95.5%', long: '91.1%', average: '95.4%', link: '#' },
+          { name: 'UniVLA', spatial: '95.4%', object: '98.8%', goal: '93.6%', long: '94.0%', average: '95.5%', link: '#' },
+          { name: 'OpenVLA-OFT (OpenVLA (fine-tuned) + PD&AC, Cont-L1) (ours)', spatial: '97.6%', object: '98.4%', goal: '97.9%', long: '94.5%', average: '97.1%', link: '#' }
+        ]
+      },
+      {
+        id: 'bridge',
+        name: 'BRIDGE v2',
+        desc: '规模化模仿学习数据集与评测套件，关注跨场景/跨任务泛化能力（此处示例字段）。',
+        columns: ['Method', 'Success@1', 'Success@5', 'Average', 'Link', 'Actions'],
+        rows: [
+          { name: 'OpenVLA (ft)', s1: '62.3%', s5: '81.2%', average: '71.8%', link: '#' },
+          { name: 'π₀ (ft)', s1: '65.1%', s5: '83.0%', average: '74.0%', link: '#' },
+          { name: 'UniVLA (复现)', s1: '63.4%', s5: '82.6%', average: '73.0%', link: '#' },
+          { name: 'CoT-VLA', s1: '60.5%', s5: '80.9%', average: '70.7%', link: '#' }
+        ]
+      },
+      {
+        id: 'calvin',
+        name: 'CALVIN',
+        desc: '多任务机械臂操控基准，强调长期依赖与目标序列。',
+        columns: ['Method', 'SR (Seen)', 'SR (Unseen)', 'Average', 'Link', 'Actions'],
+        rows: [
+          { name: 'OpenVLA (ft)', seen: '89.2%', unseen: '63.3%', average: '76.3%', link: '#' },
+          { name: 'SpatialVLA', seen: '90.4%', unseen: '65.1%', average: '77.8%', link: '#' },
+          { name: 'π₀ (ft)', seen: '92.0%', unseen: '68.7%', average: '80.3%', link: '#' },
+          { name: 'UniVLA (复现)', seen: '91.5%', unseen: '67.4%', average: '79.5%', link: '#' }
+        ]
+      },
+      {
+        id: 'rtx',
+        name: 'RT-X / Open-X',
+        desc: '跨机器人跨任务的通用行为克隆评测（示例字段）。',
+        columns: ['Method', 'BC Score', 'Generalization', 'Average', 'Link', 'Actions'],
+        rows: [
+          { name: 'OpenVLA (ft)', bc: '78.1', gen: '74.3', average: '76.2', link: '#' },
+          { name: 'π₀ (ft)', bc: '80.6', gen: '76.5', average: '78.6', link: '#' },
+          { name: 'UniVLA (复现)', bc: '79.9', gen: '76.1', average: '78.0', link: '#' }
+        ]
+      }
+    ]
+
+    // ==================== 通用渲染 & 高亮 ====================
+    function topStats(rows, keys){
+      const stats = {}
+      keys.forEach(k => {
+        const vals = rows.map(r => parseFloat((r[k]||'').toString()))
+          .filter(v => !Number.isNaN(v))
+        const uniq = [...new Set(vals)].sort((a,b)=>b-a)
+        stats[k] = { top1: uniq[0] ?? -1, top2: uniq[1] ?? -1 }
+      })
+      return stats
+    }
+
+    function clsFor(key, val, stats){
+      const v = parseFloat((val||'').toString())
+      if (Number.isNaN(v)) return ''
+      if (v === stats[key]?.top1) return 'font-bold text-cyan-600 dark:text-cyan-300'
+      if (v === stats[key]?.top2) return 'font-semibold text-indigo-600 dark:text-indigo-300'
+      return ''
+    }
+
+    function renderTable(bench){
+      const card = document.createElement('div')
+      card.className = 'rounded-2xl border border-black/10 dark:border-white/10 bg-white/70 dark:bg-white/5 backdrop-blur shadow'
+
+      // 头部（可展开）
+      const head = document.createElement('button')
+      head.className = 'w-full flex items-center justify-between px-5 py-4'
+      head.innerHTML = `
+        <div>
+          <div class="text-lg font-semibold">${bench.name}</div>
+          <div class="text-sm text-slate-600 dark:text-slate-400">${bench.desc}</div>
+        </div>
+        <svg class="size-5 text-slate-500 transition-transform" data-chevron viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6"/></svg>
+      `
+
+      const panel = document.createElement('div')
+      panel.className = 'hidden border-t border-black/10 dark:border-white/10'
+
+      // 构造列键映射（根据 benchmark 类型）
+      let numericKeys = []
+      let headers = ''
+      if (bench.id === 'libero'){
+        headers = `<th class="px-6 py-3">Method</th>
+                   <th class="px-6 py-3 text-center">SPATIAL</th>
+                   <th class="px-6 py-3 text-center">OBJECT</th>
+                   <th class="px-6 py-3 text-center">GOAL</th>
+                   <th class="px-6 py-3 text-center">LONG</th>
+                   <th class="px-6 py-3 text-center">Average</th>
+                   <th class="px-6 py-3 text-center">Link</th>
+                   <th class="px-6 py-3 text-center">Actions</th>`
+        numericKeys = ['spatial','object','goal','long','average']
+      } else if (bench.id === 'bridge'){
+        headers = `<th class="px-6 py-3">Method</th>
+                   <th class="px-6 py-3 text-center">Success@1</th>
+                   <th class="px-6 py-3 text-center">Success@5</th>
+                   <th class="px-6 py-3 text-center">Average</th>
+                   <th class="px-6 py-3 text-center">Link</th>
+                   <th class="px-6 py-3 text-center">Actions</th>`
+        numericKeys = ['s1','s5','average']
+      } else if (bench.id === 'calvin'){
+        headers = `<th class="px-6 py-3">Method</th>
+                   <th class="px-6 py-3 text-center">SR (Seen)</th>
+                   <th class="px-6 py-3 text-center">SR (Unseen)</th>
+                   <th class="px-6 py-3 text-center">Average</th>
+                   <th class="px-6 py-3 text-center">Link</th>
+                   <th class="px-6 py-3 text-center">Actions</th>`
+        numericKeys = ['seen','unseen','average']
+      } else {
+        headers = `<th class="px-6 py-3">Method</th>
+                   <th class="px-6 py-3 text-center">BC Score</th>
+                   <th class="px-6 py-3 text-center">Generalization</th>
+                   <th class="px-6 py-3 text-center">Average</th>
+                   <th class="px-6 py-3 text-center">Link</th>
+                   <th class="px-6 py-3 text-center">Actions</th>`
+        numericKeys = ['bc','gen','average']
+      }
+
+      const stats = topStats(bench.rows, numericKeys)
+      const bodyRows = bench.rows.map(r => {
+        const isRepro = /复现/.test(r.name)
+        const rowBase = 'hover:bg-white dark:hover:bg-white/10 transition ' + (isRepro ? 'text-red-600 font-medium' : '')
+        const nameTd = `<td class="px-6 py-4 font-medium ${isRepro ? '' : 'text-slate-900 dark:text-slate-100'} whitespace-nowrap">${r.name}</td>`
+
+        function cell(val, key){
+          return `<td class="px-6 py-4 text-center ${clsFor(key, val, stats)}">${val ?? '-'}</td>`
+        }
+
+        let metricTds = ''
+        if (bench.id === 'libero'){
+          metricTds = [cell(r.spatial,'spatial'), cell(r.object,'object'), cell(r.goal,'goal'), cell(r.long,'long'), cell(r.average,'average')].join('')
+        } else if (bench.id === 'bridge'){
+          metricTds = [cell(r.s1,'s1'), cell(r.s5,'s5'), cell(r.average,'average')].join('')
+        } else if (bench.id === 'calvin'){
+          metricTds = [cell(r.seen,'seen'), cell(r.unseen,'unseen'), cell(r.average,'average')].join('')
+        } else {
+          metricTds = [cell(r.bc,'bc'), cell(r.gen,'gen'), cell(r.average,'average')].join('')
+        }
+
+        const linkTd = `<td class="px-6 py-4 text-center"><a href="${r.link||'#'}" target="_blank" class="text-cyan-600 dark:text-cyan-300 hover:underline">链接</a></td>`
+        const actTd  = `<td class="px-6 py-4 text-center"><button class="view-notes-btn font-medium ${isRepro ? 'text-red-600 hover:text-red-800' : 'text-cyan-700 dark:text-cyan-300 hover:underline'}" data-model="${r.name}">📖 阅读笔记</button></td>`
+
+        return `<tr class="${rowBase}">${nameTd}${metricTds}${linkTd}${actTd}</tr>`
+      }).join('')
+
+      panel.innerHTML = `
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="text-xs uppercase">
+              <tr class="bg-black/[0.03] dark:bg-white/5 text-slate-600 dark:text-slate-300">${headers}</tr>
+            </thead>
+            <tbody class="divide-y divide-black/5 dark:divide-white/10 bg-white/60 dark:bg-white/5">${bodyRows}</tbody>
+          </table>
+        </div>
+        <div class="p-4 bg-black/[0.03] dark:bg-white/5 border-t border-black/10 dark:border-white/10 text-xs text-slate-600 dark:text-slate-400">
+          <span class="mr-6 inline-flex items-center"><strong class="text-cyan-600 dark:text-cyan-300">蓝色字体</strong>: 该列最佳</span>
+          <span class="mr-6 inline-flex items-center"><strong class="text-indigo-600 dark:text-indigo-300">靛蓝字体</strong>: 该列次佳</span>
+          <span class="inline-flex items-center"><strong class="text-red-600">红色行</strong>: 你的复现结果</span>
+        </div>
+      `
+
+      head.addEventListener('click', () => {
+        const chevron = head.querySelector('[data-chevron]')
+        const isHidden = panel.classList.contains('hidden')
+        panel.classList.toggle('hidden')
+        chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0)'
+      })
+
+      card.appendChild(head)
+      card.appendChild(panel)
+      return card
+    }
+
+    // 渲染所有 benchmark 卡片
+    const list = document.getElementById('bench-list')
+    benchmarks.forEach(b => list.appendChild(renderTable(b)))
+
+    // ========= Modal 逻辑（与你原实现一致） =========
+    const modal = document.getElementById('notes-modal')
+    const modalTitle = document.getElementById('modal-title')
+    const modalContent = document.getElementById('modal-content')
+    const loader = document.getElementById('loader')
+    const closeModalBtn = document.getElementById('close-modal-btn')
+    const modalBackdrop = modal.querySelector('.modal-backdrop')
+
+    function showModal(){ modal.classList.remove('hidden'); modal.classList.add('flex'); setTimeout(()=>{ modal.querySelector('.z-10')?.classList?.remove?.('scale-95','opacity-0') }, 10) }
+    function hideModal(){ modal.querySelector('.z-10')?.classList?.add?.('scale-95','opacity-0'); setTimeout(()=>{ modal.classList.add('hidden'); modal.classList.remove('flex') }, 200) }
+    closeModalBtn.addEventListener('click', hideModal)
+    modalBackdrop.addEventListener('click', hideModal)
+
+    async function getReadingNotes(modelName){
+      showModal(); modalTitle.textContent = `关于 “${modelName}” 的阅读笔记`; loader.style.display='flex'; modalContent.innerHTML=''; modalContent.appendChild(loader)
+
+      const prompt = `请为AI模型 '${modelName}' 生成一份详细的中文阅读笔记。笔记应包含以下几个部分：1. **核心思想**；2. **架构解析**；3. **关键贡献**；4. **潜在应用**。要求结构清晰、要点突出。`
+      const apiKey = 'YOUR_API_KEY'
+      if (apiKey === 'YOUR_API_KEY') { loader.style.display='none'; modalContent.innerHTML = `<strong>注意：</strong>请在代码中替换 \"YOUR_API_KEY\" 为你的 Gemini API 密钥后再使用此功能。`; return }
+
+      const payload = { contents: [{ role:'user', parts:[{ text: prompt }] }] }
+      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`
+      try {
+        let response; let retries=3; let delay=1000
+        for (let i=0;i<retries;i++){
+          response = await fetch(apiUrl, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+          if (response.ok) break; await new Promise(r=>setTimeout(r, delay)); delay*=2
+        }
+        if (!response.ok) throw new Error(`API 请求失败，状态码: ${response.status}`)
+        const result = await response.json()
+        const text = result?.candidates?.[0]?.content?.parts?.[0]?.text
+        loader.style.display='none'; modalContent.innerHTML = (text||'无返回内容').replace(/\n/g,'<br>').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')
+      } catch (e){ loader.style.display='none'; modalContent.textContent = `抱歉，无法加载阅读笔记：${e.message}` }
+    }
+
+    // 代理所有 “阅读笔记” 按钮
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.view-notes-btn')
+      if (!btn) return
+      const modelName = btn.getAttribute('data-model')
+      getReadingNotes(modelName)
+    })
+  </script>
+</body>
+</html>
