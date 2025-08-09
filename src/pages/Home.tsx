@@ -1,58 +1,50 @@
 import { useState } from "react";
-import { ArrowRight, Sparkles, BookOpen, Cpu, LineChart, Blocks, FlaskConical, Newspaper, Settings } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, BookOpen, Cpu, LineChart, Blocks, FlaskConical, Newspaper } from "lucide-react";
 
-export default function App() {
+export default function Home() {
   const [query, setQuery] = useState("");
-
-  const nav = [
-    { name: "首页", href: "#" },
-    { name: "Benchmark 榜单", href: "benchmark.html" },
-    { name: "论文地图", href: "paper_maps.html" },
-    { name: "数据与任务", href: "dataTask.html" },
-    { name: "复现日志", href: "blog.html" },
-    { name: "工具与Playground", href: "#tools" },
-  ];
 
   const features = [
     {
       title: "VLA Benchmark 联合榜单",
       desc: "综合对比各类 VLA 模型在多项基准（LIBERO / BRIDGE / CALVIN / RT-X 等）上的成功率表现，点击进入查看详细榜单与分析。",
-      href: "benchmark.html",
+      to: "/benchmark",
       icon: <LineChart className="w-6 h-6" />,
       cta: "查看榜单",
     },
     {
       title: "论文地图（Paper Atlas）",
       desc: "按主题浏览：Policy Learning、Grounding、Planning、RAG for VLA、Preference Alignment、Open-World Generalization。",
-      href: "#papers",
+      to: "/paper-map",
       icon: <BookOpen className="w-6 h-6" />,
       cta: "开始浏览",
     },
     {
       title: "数据与任务（Datasets & Tasks）",
       desc: "LIBERO / BRIDGE / CALVIN / RT-X / Open-X 等常用套件的梳理与链接，附带下载与复现实用建议。",
-      href: "#datasets",
+      to: "/data-task",
       icon: <Blocks className="w-6 h-6" />,
       cta: "查看清单",
     },
     {
       title: "复现日志（Repro Logs）",
       desc: "OpenVLA / π₀ / SpatialVLA / CoT-VLA 等模型的训练与评测记录，可一键复制命令与配置。",
-      href: "#repro",
+      to: "/repro-logs",
       icon: <Cpu className="w-6 h-6" />,
       cta: "打开日志",
     },
     {
       title: "实验 Playground",
       desc: "交互式可视化：Loss/Acc 曲线、成功率曲线、超参敏感性；支持快速对比与导出。",
-      href: "#tools",
+      to: "/playground",
       icon: <FlaskConical className="w-6 h-6" />,
       cta: "进入实验台",
     },
     {
       title: "领域快讯",
       desc: "收集 VLA / 机器人学习 方向近期论文与项目动态（可选接入 RSS / GitHub Trending）。",
-      href: "quick_news.html",
+      to: "/quick-news",
       icon: <Newspaper className="w-6 h-6" />,
       cta: "看看最新",
     },
@@ -66,33 +58,7 @@ export default function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
-      {/* Top nav */}
-      <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 bg-slate-900/80 border-b border-white/10">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
-          <a href="#" className="flex items-center gap-2">
-            <div className="relative">
-              <span className="absolute -inset-1 rounded-xl bg-cyan-500/30 blur-sm" />
-              <div className="relative rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-400 p-2 shadow-lg">
-                <Sparkles className="w-5 h-5 text-slate-950" />
-              </div>
-            </div>
-            <span className="font-bold tracking-tight text-lg">VLArena</span>
-            <span className="text-xs text-slate-400 hidden sm:inline">Vision · Language · Action Lab</span>
-          </a>
-          <nav className="hidden md:flex items-center gap-6 text-sm">
-            {nav.map((n) => (
-              <a key={n.name} href={n.href} className="text-slate-300 hover:text-white transition-colors">
-                {n.name}
-              </a>
-            ))}
-            <a href="#settings" className="p-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors" title="设置">
-              <Settings className="w-4 h-4" />
-            </a>
-          </nav>
-        </div>
-      </header>
-
+    <div>
       {/* Hero */}
       <section className="relative">
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.20),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.20),transparent_45%)]" />
@@ -107,11 +73,17 @@ export default function App() {
                 榜单、论文、数据、实验与可视化，一站式集成。
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
-                <a href="benchmark.html" className="group inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-400/25 transition">
+                <Link
+                  to="/benchmark"
+                  className="group inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-400/25 transition"
+                >
                   <span>Benchmark 联合榜单</span>
                   <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                </a>
-                <a href="#papers" className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 transition">
+                </Link>
+                <a
+                  href="#papers"
+                  className="inline-flex items-center gap-2 rounded-2xl px-4 py-2 bg-white/5 border border-white/10 hover:bg-white/10 transition"
+                >
                   <span>论文地图</span>
                 </a>
               </div>
@@ -142,8 +114,12 @@ export default function App() {
               <div className="relative rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl">
                 <div className="text-sm text-slate-300">快速入口</div>
                 <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {features.slice(0,6).map((f) => (
-                    <a key={f.title} href={f.href} className="group rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition">
+                  {features.map((f) => (
+                    <Link
+                      key={f.title}
+                      to={f.to}
+                      className="group rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"
+                    >
                       <div className="flex items-center gap-2">
                         <div className="p-2 rounded-xl bg-white/5 border border-white/10">{f.icon}</div>
                         <div className="font-semibold leading-tight">{f.title}</div>
@@ -152,7 +128,7 @@ export default function App() {
                       <span className="mt-3 inline-flex items-center gap-1 text-xs text-cyan-300">
                         {f.cta} <ArrowRight className="w-3 h-3" />
                       </span>
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -163,7 +139,13 @@ export default function App() {
           <div className="mt-10 flex flex-wrap items-center gap-3 text-sm text-slate-400">
             <span className="opacity-80">常用直达：</span>
             {quickLinks.map((l) => (
-              <a key={l.name} href={l.href} target="_blank" rel="noreferrer" className="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">
+              <a
+                key={l.name}
+                href={l.href}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10"
+              >
                 {l.name}
               </a>
             ))}
@@ -178,11 +160,24 @@ export default function App() {
             <h2 className="text-2xl font-bold">论文地图</h2>
             <p className="text-slate-400 mt-1">按主题分区，点击进入子页（可后续补全）。</p>
           </div>
-          <a href="paper_map.html" className="text-sm text-cyan-300 hover:underline">全部文章</a>
+          <Link to="/paper-map" className="text-sm text-cyan-300 hover:underline">
+            全部文章
+          </Link>
         </div>
         <div className="mt-6 grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {["Policy Learning", "Grounding & Segmentation", "Planning & CoT", "RAG for VLA", "Preference Alignment", "Open-World Generalization"].map((t) => (
-            <a key={t} href="#" className="rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10 transition">
+          {[
+            "Policy Learning",
+            "Grounding & Segmentation",
+            "Planning & CoT",
+            "RAG for VLA",
+            "Preference Alignment",
+            "Open-World Generalization",
+          ].map((t) => (
+            <a
+              key={t}
+              href="#"
+              className="rounded-2xl border border-white/10 bg-white/5 p-5 hover:bg-white/10 transition"
+            >
               <div className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5" />
                 <div className="font-semibold">{t}</div>
@@ -198,10 +193,19 @@ export default function App() {
         <h2 className="text-2xl font-bold">数据与任务</h2>
         <p className="text-slate-400 mt-1">常见基准与套件一览，附复现建议。</p>
         <div className="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {["LIBERO", "BRIDGE", "CALVIN", "RT-X", "Open-X", "RLAIF / Human Data"].map((d) => (
+          {[
+            "LIBERO",
+            "BRIDGE",
+            "CALVIN",
+            "RT-X",
+            "Open-X",
+            "RLAIF / Human Data",
+          ].map((d) => (
             <div key={d} className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <div className="font-semibold">{d}</div>
-              <p className="text-sm text-slate-400 mt-2">数据概况、下载链接、训练脚本与常见坑位记录（待完善）。</p>
+              <p className="text-sm text-slate-400 mt-2">
+                数据概况、下载链接、训练脚本与常见坑位记录（待完善）。
+              </p>
             </div>
           ))}
         </div>
@@ -213,8 +217,7 @@ export default function App() {
         <p className="text-slate-400 mt-1">记录训练与评测过程的关键细节，支持命令拷贝。</p>
         <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-5">
           <code className="block text-sm text-slate-200 whitespace-pre-wrap">
-            $ accelerate launch finetune.py \
-            --model openvla-7b --dataset LIBERO --method lora --lr 2e-5 --bs 32 --epochs 3
+            $ accelerate launch finetune.py --model openvla-7b --dataset LIBERO --method lora --lr 2e-5 --bs 32 --epochs 3
           </code>
         </div>
       </section>
@@ -244,17 +247,7 @@ export default function App() {
           <li>· 支持关键词过滤与一键收藏到“复现日志”。</li>
         </ul>
       </section>
-
-      <footer className="border-t border-white/10 py-8">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-slate-400 text-sm">
-          <div>© {new Date().getFullYear()} VLArena · Vision · Language · Action Lab</div>
-          <div className="flex items-center gap-3">
-            <a className="hover:text-slate-200" href="benchmark.html">Benchmark 联合榜单</a>
-            <a className="hover:text-slate-200" href="#">关于</a>
-            <a className="hover:text-slate-200" href="#">反馈</a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
+
