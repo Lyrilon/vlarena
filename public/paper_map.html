@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>VLArena · Paper Atlas（无构建版）</title>
+  <title>VLArena · Paper Atlas (连接本地 MySQL)</title>
 
-  <!-- Tailwind CDN -->
+  <!-- Tailwind -->
   <script>window.tailwind={config:{darkMode:'class'}};</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -15,28 +15,16 @@
     .modal-backdrop{background-color:rgba(0,0,0,.55)}
   </style>
 
-  <!-- React / ReactDOM / Babel（在浏览器里把 JSX 编译为 JS） -->
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- 核心库：React, ReactDOM, Babel -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js" defer></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" defer></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js" defer></script>
+  
+  <!-- 图表库：Recharts -->
+  <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.min.js" defer></script>
 
-  <!-- Recharts UMD：添加“双CDN + 兜底加载”，避免某些环境阻断导致的 Recharts 未定义 -->
+  <!-- 主题管理 -->
   <script>
-    (function ensureRecharts(){
-      function load(src, cb){ var s=document.createElement('script'); s.src=src; s.onload=cb; s.onerror=cb; document.head.appendChild(s); }
-      // 先尝试 jsDelivr，失败再退回 unpkg
-      if(!window.Recharts){
-        load('https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.min.js', function(){
-          if(!window.Recharts){
-            load('https://unpkg.com/recharts/umd/Recharts.min.js', function(){ /* 最后一次尝试 */ });
-          }
-        });
-      }
-    })();
-  </script>
-
-  <script>
-    // 主题：localStorage > 系统偏好 > 默认 dark
     (function(){
       const saved=localStorage.getItem('theme');
       const prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -44,6 +32,7 @@
       document.documentElement.classList.toggle('dark',useDark);
     })();
   </script>
+  
 </head>
 <body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
   <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.20),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.20),transparent_45%)]"></div>
@@ -51,31 +40,13 @@
   <div id="root"></div>
 
   <script type="text/babel">
-    // ===== 运行时自检（"测试用例"）======
-    function assert(cond, msg){ if(!cond) console.error('[PaperAtlas TEST]', msg); return !!cond; }
-    const TESTS = [
-      ()=>assert(!!window.React, 'React 未加载'),
-      ()=>assert(!!window.ReactDOM, 'ReactDOM 未加载'),
-      ()=>assert(typeof window.Babel === 'object', 'Babel 未加载'),
-      ()=>assert(true, '占位测试：始终通过')
-    ];
-    const ALL_OK = TESTS.every(fn=>fn());
-
     const { useMemo, useState, useEffect } = React;
 
+    // ===== 全局常量 =====
     const TOPICS=["Policy Learning","Grounding","Planning / CoT","RAG for VLA","Preference Alignment","Open-World Generalization"];
     const VENUES=["ICLR","ICML","NeurIPS","CoRL","RSS","CVPR","ECCV","IJRR","arXiv"];
 
-    const papersSeed=Array.from({length:24}).map((_,i)=>{
-      const year=2019+(i%7); const topic=TOPICS[i%TOPICS.length]; const venue=VENUES[(i*3)%VENUES.length];
-      return { id:`VLA-${i+1}`, title:`占位论文标题 #${i+1}: ${topic}`, year, venue, topic,
-        authors:["A. Author","B. Author","C. Author"].slice(0,(i%3)+1), pdfUrl:'#', codeUrl:'#', projectUrl:'#',
-        impact:["Benchmark","System","Method","Survey"][i%4],
-        summary:"这是占位摘要。你可以替换成真实论文内容（方法、实验、结论等）。",
-        tags:["robotics","manipulation","vision-language","LLM"].slice(0,(i%4)+1)
-      }
-    });
-
+    // ===== 数据处理函数 (无变化) =====
     function buildTimelineSeries(papers, topics){
       const years=[...new Set(papers.map(p=>p.year))].sort((a,b)=>a-b);
       return years.map(y=>{
@@ -85,21 +56,40 @@
       });
     }
 
+    // ===== UI 组件 (无重大变化) =====
     const IconSparkles = () => (
       <svg className="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v4h-2zM4.222 5.636l1.414-1.414 2.828 2.829-1.414 1.413zM3 11h4v2H3zM5.636 19.778l2.828-2.828 1.414 1.414-2.828 2.828zM11 17h2v4h-2zM16.122 18.364l1.414-1.414 2.829 2.828-1.415 1.415zM17 11h4v2h-4zM18.364 7.05l-1.414 1.415-2.828-2.829 1.414-1.414z"/></svg>
     );
-
     const Tag=({children})=> (
       <span className="inline-flex items-center gap-1 rounded-xl px-2 py-1 text-xs bg-white/5 border border-white/10">{children}</span>
     );
 
-    // 独立的时间线图表组件：在内部按需读取 window.Recharts，若不可用则给出优雅降级
+    // Recharts 就绪状态 Hook (无变化)
+    function useRechartsReady(){
+      const [ready, setReady] = useState(!!window.Recharts);
+      useEffect(() => {
+        if (ready) return;
+        if (window.Recharts) { setReady(true); return; }
+        const interval = setInterval(() => {
+          if (window.Recharts) {
+            setReady(true);
+            clearInterval(interval);
+          }
+        }, 200);
+        return () => clearInterval(interval);
+      }, []);
+      return ready;
+    }
+
+    // 图表组件 (无变化)
     function TimelineChart({ data, topics }){
-      const R = window.Recharts; // 不在模块顶层引用，避免 Recharts 未定义时报错
+      const ready = useRechartsReady();
+      const R = ready ? window.Recharts : null;
+
       if(!R){
         return (
           <div className="p-4 rounded-xl bg-white/5 border border-white/10 text-sm text-amber-300">
-            ⚠️ 无法加载图表库（Recharts）。已降级为文本视图。请检查网络/CDN 或允许外部脚本。
+            ⚠️ 正在加载图表库 (Recharts)...
             <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 text-slate-200">
               {data.map(row => (
                 <div key={row.year} className="rounded-lg bg-white/5 px-3 py-2">
@@ -129,7 +119,8 @@
         </div>
       );
     }
-
+    
+    // 弹窗组件 (无变化)
     function PaperModal({open,onClose,paper}){
       return (
         <div className={"fixed inset-0 z-50 "+(open?"flex":"hidden")+" items-center justify-center p-4"}>
@@ -156,6 +147,11 @@
     }
 
     function App(){
+      // ===== 状态管理 =====
+      const [papers, setPapers] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [error, setError] = useState(null);
+
       const [query,setQuery]=useState("");
       const [yearMin,setYearMin]=useState(2019);
       const [yearMax,setYearMax]=useState(2025);
@@ -164,16 +160,48 @@
       const [focusYear,setFocusYear]=useState(null);
       const [openPaper,setOpenPaper]=useState(null);
 
-      const papers=useMemo(()=>papersSeed,[]);
-      const filtered=useMemo(()=>papers.filter(p=>
-        p.year>=yearMin && p.year<=yearMax && topicSelected.has(p.topic) &&
-        (query.trim()==="" || p.title.toLowerCase().includes(query.toLowerCase()) ||
-         p.authors.join(" ").toLowerCase().includes(query.toLowerCase()) ||
-         p.venue.toLowerCase().includes(query.toLowerCase()))
-      ),[papers,yearMin,yearMax,topicSelected,query]);
+      // ============================================================
+      // 修改：使用 useEffect 从本地后端获取数据
+      // ============================================================
+      useEffect(() => {
+        // 定义后端 API 的地址
+        const API_URL = 'http://localhost:3001/api/papers';
 
-      const timelineData=useMemo(()=>buildTimelineSeries(filtered,TOPICS),[filtered]);
+        // 使用 fetch 函数请求数据
+        fetch(API_URL)
+          .then(response => {
+            // 检查请求是否成功
+            if (!response.ok) {
+              throw new Error(`网络请求失败，状态码: ${response.status}`);
+            }
+            // 将响应体解析为 JSON
+            return response.json();
+          })
+          .then(data => {
+            // 成功获取数据，更新状态
+            setPapers(data);
+            setLoading(false);
+          })
+          .catch(err => {
+            // 处理请求过程中的任何错误
+            console.error("获取数据时出错:", err);
+            setError("无法连接到本地后端服务器。请确认 server.js 正在运行，并且数据库连接正常。");
+            setLoading(false);
+          });
 
+      }, []); // 空依赖数组 `[]` 确保这个 effect 只在组件挂载时运行一次
+
+      // ===== 数据过滤 (无变化) =====
+      const filtered = useMemo(() => papers.filter(p =>
+        p.year >= yearMin && p.year <= yearMax && topicSelected.has(p.topic) &&
+        (query.trim() === "" || p.title.toLowerCase().includes(query.toLowerCase()) ||
+         (p.authors && p.authors.join(" ").toLowerCase().includes(query.toLowerCase())) ||
+         (p.venue && p.venue.toLowerCase().includes(query.toLowerCase())))
+      ), [papers, yearMin, yearMax, topicSelected, query]);
+
+      const timelineData = useMemo(() => buildTimelineSeries(filtered, TOPICS), [filtered]);
+
+      // ===== 播放动画 (无变化) =====
       useEffect(()=>{
         if(!playing) return; let i=0;
         const years=[...new Set(filtered.map(p=>p.year))].sort((a,b)=>a-b); if(years.length===0) return;
@@ -183,13 +211,14 @@
 
       function toggleTopic(t){ const next=new Set(topicSelected); next.has(t)?next.delete(t):next.add(t); setTopicSelected(next); }
 
-      const rechartsReady = !!window.Recharts;
+      const rechartsReady = useRechartsReady();
 
+      // ===== 主渲染逻辑 (无重大变化) =====
       return (
         <div>
-          {/* 顶部导航 */}
           <header className="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 bg-slate-900/80 border-b border-white/10">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
+            {/* ... header 内容不变 ... */}
+             <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
               <a href="/" className="flex items-center gap-2">
                 <span className="relative">
                   <span className="absolute -inset-1 rounded-xl bg-cyan-500/30 blur-sm"></span>
@@ -199,17 +228,16 @@
                 <span className="text-xs text-slate-400 hidden sm:inline">Vision · Language · Action Lab</span>
               </a>
               <nav className="hidden md:flex items-center gap-6 text-sm">
-                <a href="/benchmark.html" className="text-slate-300 hover:text-white transition-colors">Benchmark 榜单</a>
+                <a href="#" className="text-slate-300 hover:text-white transition-colors">Benchmark 榜单</a>
               </nav>
             </div>
           </header>
 
           <main className="mx-auto max-w-7xl px-4 sm:px-6 py-10">
-            {/* 环境检测条 */}
+            {/* ... 环境检测条, 标题区, 控制面板, 时间线等内容不变 ... */}
             <div className={"rounded-xl border px-3 py-2 text-xs " + (rechartsReady? 'border-white/10 bg-white/5 text-slate-300' : 'border-amber-400/40 bg-amber-400/10 text-amber-200')}>
-              {rechartsReady ? '✅ Recharts 已加载，图表功能可用。' : '⚠️ 未能加载 Recharts，已降级为文本视图。若你在内网/有 CSP 限制，请改用本地 UMD 包或允许 jsDelivr/unpkg。'}
+              {rechartsReady ? '✅ Recharts 已加载，图表功能可用。' : '⏳ 正在加载 Recharts…'}
             </div>
-
             <div className="flex items-end justify-between gap-4 mt-4">
               <div>
                 <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">VLA 论文地图（Paper Atlas）</h1>
@@ -217,8 +245,6 @@
               </div>
               <a href="#" className="text-sm text-cyan-300 hover:underline">数据模板下载</a>
             </div>
-
-            {/* 控制面板 */}
             <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                 <div>
@@ -246,8 +272,6 @@
                 </div>
               </div>
             </section>
-
-            {/* 时间线 */}
             <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-slate-300">📅 年度论文产出</div>
@@ -257,35 +281,40 @@
               {focusYear && <div className="mt-2 text-xs text-slate-300">当前聚焦年份：<span className="font-semibold text-cyan-300">{focusYear}</span></div>}
             </section>
 
-            {/* 列表 */}
+            {/* 论文列表 (新增加载和错误状态处理) */}
             <section className="mt-6">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-300">📚 论文列表（{filtered.length}）</div>
+                <div className="text-sm text-slate-300">📚 论文列表（{loading ? '加载中...' : `${filtered.length} 篇`}）</div>
                 <a href="#" className="text-sm text-cyan-300 hover:underline">导出为 CSV →</a>
               </div>
-              <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map(p=> (
-                  <div key={p.id} className={(focusYear && p.year===focusYear? 'ring-1 ring-cyan-400/40 ':'')+" rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"}>
-                    <div className="text-xs text-slate-400 flex items-center gap-2"><span>📅 {p.year}</span><span>·</span><span>{p.venue}</span></div>
-                    <h3 className="mt-1 font-semibold leading-snug line-clamp-2">{p.title}</h3>
-                    <div className="mt-1 text-xs text-slate-400 line-clamp-1">{p.authors.join(', ')}</div>
-                    <div className="mt-2 flex flex-wrap gap-2"><Tag>{p.topic}</Tag><Tag>{p.impact}</Tag></div>
-                    <div className="mt-3 flex items-center gap-2 text-sm">
-                      <button onClick={()=>setOpenPaper(p)} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">详情 →</button>
-                      <a href={p.pdfUrl} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">PDF</a>
-                      <a href={p.codeUrl} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">Code</a>
+              {loading && <div className="mt-4 text-center text-slate-400">正在从本地后端服务器加载论文数据...</div>}
+              {error && <div className="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">{error}</div>}
+              {!loading && !error && (
+                <div className="mt-3 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filtered.map(p=> (
+                    <div key={p.id} className={(focusYear && p.year===focusYear? 'ring-1 ring-cyan-400/40 ':'')+" rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition"}>
+                      <div className="text-xs text-slate-400 flex items-center gap-2"><span>📅 {p.year}</span><span>·</span><span>{p.venue}</span></div>
+                      <h3 className="mt-1 font-semibold leading-snug line-clamp-2">{p.title}</h3>
+                      <div className="mt-1 text-xs text-slate-400 line-clamp-1">{p.authors.join(', ')}</div>
+                      <div className="mt-2 flex flex-wrap gap-2"><Tag>{p.topic}</Tag><Tag>{p.impact}</Tag></div>
+                      <div className="mt-3 flex items-center gap-2 text-sm">
+                        <button onClick={()=>setOpenPaper(p)} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">详情 →</button>
+                        <a href={p.pdfUrl} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">PDF</a>
+                        <a href={p.codeUrl} className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10">Code</a>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </section>
           </main>
 
           <footer className="border-t border-white/10 py-8">
+            {/* ... footer 内容不变 ... */}
             <div className="mx-auto max-w-7xl px-4 sm:px-6 flex flex-col md:flex-row items-center justify-between gap-3 text-slate-400 text-sm">
               <div>© {new Date().getFullYear()} VLArena · Vision · Language · Action Lab</div>
               <div className="flex items-center gap-3">
-                <a className="hover:text-slate-200" href="/benchmark.html">Benchmark 联合榜单</a>
+                <a className="hover:text-slate-200" href="#">Benchmark 联合榜单</a>
                 <a className="hover:text-slate-200" href="#">关于</a>
                 <a className="hover:text-slate-200" href="#">反馈</a>
               </div>
@@ -297,7 +326,8 @@
       );
     }
 
-    const root=ReactDOM.createRoot(document.getElementById('root'));
+    // 渲染 App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App/>);
   </script>
 </body>

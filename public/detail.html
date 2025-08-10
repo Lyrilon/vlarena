@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>VLArena · 详情</title>
+
+  <!-- Tailwind & Fonts -->
+  <script>window.tailwind={config:{darkMode:'class'}};</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      color-scheme:light dark;
+      --sidebar-width: 25%; /* CSS 变量用于动态控制侧边栏宽度 */
+    }
+    html { scroll-behavior: smooth; }
+    body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji'}
+
+    /* Markdown 基础样式 */
+    .markdown-content h1, .markdown-content h2, .markdown-content h3 { font-weight: 600; margin-top: 1.5em; margin-bottom: 0.5em; scroll-margin-top: 5rem; }
+    .markdown-content h1 { font-size: 1.875rem; }
+    .markdown-content h2 { font-size: 1.5rem; }
+    .markdown-content h3 { font-size: 1.25rem; }
+    .markdown-content p { line-height: 1.7; margin-bottom: 1em; }
+    .markdown-content ul, .markdown-content ol { margin-left: 1.5rem; margin-bottom: 1em; }
+    .markdown-content li { margin-bottom: 0.5em; }
+    .markdown-content a { color: #67e8f9; text-decoration: underline; }
+    .markdown-content code { background-color: rgba(255,255,255,0.1); padding: 0.2em 0.4em; border-radius: 0.25rem; font-family: monospace; }
+    .markdown-content pre { background-color: rgba(0,0,0,0.3); padding: 1em; border-radius: 0.5rem; overflow-x: auto; }
+    .markdown-content pre code { padding: 0; background: transparent; }
+
+    /* Markdown 表格样式与响应式滚动 */
+    .markdown-content table{ width:100%; border-collapse:collapse; table-layout:auto; margin:1rem 0; }
+    .markdown-content thead th{ font-weight:600; background:rgba(255,255,255,.06); }
+    .markdown-content th, .markdown-content td{ border:1px solid rgba(255,255,255,.15); padding:.5rem .75rem; text-align:left; vertical-align:top; }
+    .markdown-content tbody tr:nth-child(odd){ background:rgba(255,255,255,.03); }
+    .md-table-wrap{ overflow-x:auto; border-radius:.5rem; }
+
+    /* details 标签：隐藏默认三角、定制箭头 */
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary .arrow { transition: transform 0.2s; }
+    details[open] > summary .arrow { transform: rotate(90deg); }
+
+    /* 侧边栏和拖动条样式 */
+    .sidebar { flex-basis: var(--sidebar-width); min-width: 200px; max-width: 50%; transition: flex-basis 300ms ease-in-out, min-width 300ms ease-in-out, padding 300ms ease-in-out, opacity 300ms ease-in-out; overflow: hidden; }
+    .resizer { flex-basis: 5px; cursor: col-resize; background-color: rgba(255, 255, 255, 0.1); transition: background-color 0.2s, flex-basis 300ms ease-in-out; }
+    .resizer:hover { background-color: rgba(34, 211, 238, 0.5); }
+    .main-content { flex-grow: 1; min-width: 0; }
+
+    /* 侧边栏收起样式 */
+    .sidebar-collapsed .sidebar { flex-basis: 0; min-width: 0; padding-right: 0; opacity: 0; }
+    .sidebar-collapsed .resizer { flex-basis: 0; }
+    .sidebar-collapsed #sidebar-toggle-btn .icon-collapse { display: none; }
+    .sidebar-collapsed #sidebar-toggle-btn .icon-expand { display: block; }
+
+    /* 自定义滚动条（与站点风格统一） */
+    .custom-scrollbar{ scrollbar-gutter: stable both-edges; scrollbar-width: thin; scrollbar-color: rgba(148,163,184,.35) transparent; }
+    .custom-scrollbar::-webkit-scrollbar{ width:8px; }
+    .custom-scrollbar::-webkit-scrollbar-track{ background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb{ background: rgba(148,163,184,.35); border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover{ background: rgba(148,163,184,.5); }
+    .custom-scrollbar::-webkit-scrollbar-button{ width:0; height:0; display:none; }
+  </style>
+
+  <!-- Marked.js 用于解析 Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- 主题管理 -->
+  <script>
+    (function(){
+      const saved=localStorage.getItem('theme');
+      const prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.classList.toggle('dark', saved? saved==='dark' : (prefersDark||true));
+    })();
+  </script>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100">
+  <div class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(34,211,238,0.20),transparent_45%),radial-gradient(ellipse_at_bottom,rgba(129,140,248,0.20),transparent_45%)]"></div>
+
+  <!-- 顶部导航：与站点一致 -->
+  <header class="sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-slate-900/60 bg-slate-900/80 border-b border-white/10">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between">
+      <a href="index.html" class="flex items-center gap-2">
+        <span class="relative"><span class="absolute -inset-1 rounded-xl bg-cyan-500/30 blur-sm"></span><span class="relative rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-400 p-2 shadow-lg"><svg class="w-5 h-5 text-slate-950" viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v4h-2zM4.222 5.636l1.414-1.414 2.828 2.829-1.414 1.413zM3 11h4v2H3zM5.636 19.778l2.828-2.828 1.414 1.414-2.828 2.828zM11 17h2v4h-2zM16.122 18.364l1.414-1.414 2.829 2.828-1.415 1.415zM17 11h4v2h-4zM18.364 7.05l-1.414 1.415-2.828-2.829 1.414-1.414z"/></svg></span></span>
+        <span class="font-bold tracking-tight text-lg">VLArena</span>
+      </a>
+      <nav class="hidden md:flex items-center gap-6 text-sm">
+        <a href="index.html" class="text-slate-300 hover:text-white">首页</a>
+        <a href="paper_map.html" class="text-slate-300 hover:text-white">论文地图</a>
+        <a href="datasets.html" class="text-slate-300 hover:text-white">数据与任务</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- 主体内容区 -->
+  <div id="page-container" class="mx-auto max-w-7xl px-4 sm:px-6 py-12 relative">
+    <!-- 统一的切换按钮 -->
+    <button id="sidebar-toggle-btn" title="切换大纲" class="hidden lg:flex fixed top-24 z-40 p-2 rounded-md bg-slate-800/50 border border-white/10 hover:bg-slate-700/70 backdrop-blur-sm" style="left:0;">
+        <span class="icon-collapse">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+        </span>
+        <span class="icon-expand hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+        </span>
+    </button>
+    <div class="lg:flex">
+      <!-- 左侧：侧边大纲 -->
+      <aside id="outline-container" class="sidebar hidden lg:block"></aside>
+      <!-- 拖动条 -->
+      <div id="resizer" class="resizer hidden lg:block"></div>
+      <!-- 右侧：主要内容 -->
+      <main id="content" class="main-content lg:pl-4">
+        <div id="loadingState" class="text-center text-slate-400">正在加载详情...</div>
+      </main>
+    </div>
+  </div>
+
+  <footer class="border-t border-white/10 py-8">
+    <div class="mx-auto max-w-7xl px-4 sm:px-6 text-center text-slate-400 text-sm">
+      © <span id="year"></span> VLArena · Vision · Language · Action Lab
+    </div>
+  </footer>
+
+  <script>
+    // ======= 数据层：从 localStorage 读取 =======
+    const KEY='vlarena.cards.v1';
+    function loadData() {
+      try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+    }
+
+    // ======= 渲染层：根据 URL 参数填充页面 =======
+    document.addEventListener('DOMContentLoaded', () => {
+      const contentEl = document.getElementById('content');
+      const loadingEl = document.getElementById('loadingState');
+      const outlineContainer = document.getElementById('outline-container');
+      const params = new URLSearchParams(window.location.search);
+      const itemId = params.get('id');
+
+      if (!itemId) { loadingEl.innerHTML = `<div class="text-red-400">错误：URL 中缺少 ID。</div>`; return; }
+
+      const allData = loadData();
+      const item = allData.find(d => d.id === itemId);
+      if (!item) { loadingEl.innerHTML = `<div class="text-red-400">错误：未找到 ID 为 ${itemId} 的项目。</div>`; return; }
+
+      document.title = `VLArena · ${item.name}`;
+
+      // 1. 渲染主要内容
+      const typeColor = item.type === 'benchmark' ? 'text-cyan-300' : 'text-indigo-300';
+      const mainHtml = `
+        <div class="flex items-center gap-3">
+            <a href="datasets.html" class="text-sm text-slate-300 hover:text-white">‹ 返回列表</a>
+        </div>
+        <div class="mt-4 p-6 rounded-2xl border border-white/10 bg-white/5">
+            <span class="font-semibold ${typeColor}">${item.type.toUpperCase()}</span>
+            <a href="${item.homepage || '#'}" target="_blank" class="block">
+                <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight mt-2 hover:text-cyan-300 transition-colors">${item.name}</h1>
+            </a>
+            <div class="mt-4 flex flex-wrap gap-2">
+                ${(item.tags || []).map(t => `<span class=\"inline-flex items-center gap-1 px-2 py-1 text-xs rounded-lg bg-white/5 border border-white/10\">${t}</span>`).join('')}
+            </div>
+            <p class="mt-6 text-slate-200 leading-relaxed">${item.desc || ''}</p>
+            <div class="mt-6 flex flex-wrap gap-3 text-sm">
+                <a href="${item.homepage || '#'}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20">官网/主页 →</a>
+                ${item.repo ? `<a href="${item.repo}" target="_blank" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/10 hover:bg-white/20">代码仓库 →</a>` : ''}
+            </div>
+        </div>
+        <div class="mt-6 p-6 rounded-2xl border border-white/10 bg-white/5">
+            <h2 class="text-xl font-bold">详细信息</h2>
+            <div class="mt-4 border-t border-white/10 pt-4">
+              <div class="md-table-wrap">
+                <div id="markdown-container" class="markdown-content text-slate-300"><!-- Markdown 注入 --></div>
+              </div>
+            </div>
+        </div>`;
+
+      // 修复：在 innerHTML 赋值前，将需要保留的元素移出
+      const toggleBtn = document.getElementById('sidebar-toggle-btn');
+      contentEl.before(toggleBtn);
+      loadingEl.remove();
+      contentEl.innerHTML = mainHtml;
+
+      // 2. 解析并渲染 Markdown（开启 GFM 表格）
+      marked.setOptions({ gfm: true, breaks: false, headerIds: true, mangle: false });
+      const markdownContainer = document.getElementById('markdown-container');
+      const detailsHtml = item.details ? marked.parse(item.details) : '<p>暂无详细介绍。</p>';
+      markdownContainer.innerHTML = detailsHtml;
+
+      // 2.5 每个表格单独包裹滚动容器，避免窄屏挤压
+      markdownContainer.querySelectorAll('table').forEach(t=>{
+        const w = document.createElement('div');
+        w.className = 'md-table-wrap';
+        t.replaceWith(w); w.appendChild(t);
+      });
+
+      // 2.6 在生成大纲前：确保所有标题都有唯一 id（支持中文 & 去重）
+      (function ensureHeadingIds(){
+        const headings = markdownContainer.querySelectorAll('h1, h2, h3');
+        const used = new Set();
+        const slugify = (text) => {
+          let base = (text||'').trim().toLowerCase()
+            .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+          if (!base) base = 'section';
+          let id = base, i = 2;
+          while (used.has(id)) id = `${base}-${i++}`;
+          used.add(id);
+          return id;
+        };
+        headings.forEach(h => {
+          if (!h.id || h.id === '') { h.id = slugify(h.textContent || ''); }
+          else if (used.has(h.id)) { h.id = slugify(h.textContent || h.id); }
+          else { used.add(h.id); }
+        });
+      })();
+
+      // 3. 从渲染后的内容中提取标题并生成大纲
+      const headings = Array.from(markdownContainer.querySelectorAll('h1, h2, h3'));
+      if (headings.length > 1) {
+        outlineContainer.classList.add('sticky', 'top-24', 'h-[calc(100vh-8rem)]');
+        const nav = document.createElement('nav');
+        nav.className = 'text-sm h-full overflow-y-auto pr-4 custom-scrollbar';
+
+        const headerDiv = document.createElement('div');
+        headerDiv.className = 'flex items-center justify-between mb-2';
+        headerDiv.innerHTML = `<h3 class="font-semibold text-slate-200 uppercase tracking-wider">页面大纲</h3>`;
+        nav.appendChild(headerDiv);
+
+        const list = document.createElement('ul');
+        list.className = 'space-y-1 pl-0 list-none';
+        nav.appendChild(list);
+
+        let currentDetails = null;
+        let subList = null;
+        headings.forEach(heading => {
+          const level = parseInt(heading.tagName.substring(1));
+          const text = heading.textContent;
+          const id = heading.id;
+
+          const link = document.createElement('a');
+          link.href = `#${encodeURIComponent(id)}`;
+          link.textContent = text;
+
+          if (level <= 2) {
+            const listItem = document.createElement('li');
+            currentDetails = document.createElement('details');
+            currentDetails.open = true;
+
+            const summary = document.createElement('summary');
+            summary.className = 'font-semibold text-slate-300 cursor-pointer list-none flex items-center gap-1.5 py-1';
+            summary.innerHTML = `<svg class="arrow w-3 h-3 text-slate-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>`;
+            link.className = 'hover:text-cyan-300 transition-colors';
+            summary.appendChild(link);
+
+            currentDetails.appendChild(summary);
+            subList = document.createElement('ul');
+            subList.className = 'mt-1 pl-6 space-y-1 border-l border-white/10';
+            currentDetails.appendChild(subList);
+
+            listItem.appendChild(currentDetails);
+            list.appendChild(listItem);
+          } else if (level === 3 && subList) {
+            const subListItem = document.createElement('li');
+            link.className = 'text-slate-400 hover:text-cyan-300 transition-colors block py-1';
+            subListItem.appendChild(link);
+            subList.appendChild(subListItem);
+          }
+        });
+        outlineContainer.appendChild(nav);
+
+        // 目录点击委托：平滑滚动并更新 hash
+        outlineContainer.addEventListener('click', (e) => {
+          const a = e.target.closest('a[href^="#"]');
+          if (!a) return;
+          e.preventDefault(); e.stopPropagation();
+          const hash = a.getAttribute('href');
+          const id = decodeURIComponent(hash.slice(1));
+          const target = document.getElementById(id);
+          if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            history.pushState(null, '', `#${encodeURIComponent(id)}`);
+          }
+        });
+
+        // 处理直接访问/变更 hash
+        function scrollToHash(id){ if(!id) return; const t = document.getElementById(id); if(t){ t.scrollIntoView({behavior:'smooth', block:'start'}); } }
+        if (location.hash) { const _id = decodeURIComponent(location.hash.slice(1)); setTimeout(()=>scrollToHash(_id), 0); }
+        window.addEventListener('hashchange', ()=>{ const _id = decodeURIComponent(location.hash.slice(1)); scrollToHash(_id); });
+      }
+
+      // 4. 初始化侧边栏功能
+      initSidebar();
+
+      // 左侧折叠按钮位置与内容容器左边对齐
+      function positionSidebarToggle(){
+        const pc = document.getElementById('page-container');
+        const btn = document.getElementById('sidebar-toggle-btn');
+        if(!pc || !btn) return;
+        const rect = pc.getBoundingClientRect();
+        const padL = parseFloat(getComputedStyle(pc).paddingLeft) || 0;
+        btn.style.left = (rect.left + padL) + 'px';
+      }
+      positionSidebarToggle();
+      window.addEventListener('resize', positionSidebarToggle);
+
+      document.getElementById('year').textContent = new Date().getFullYear();
+    });
+
+    // ======= 侧边栏交互逻辑 =======
+    function initSidebar() {
+        const pageContainer = document.getElementById('page-container');
+        const outlineContainer = document.getElementById('outline-container');
+        const resizer = document.getElementById('resizer');
+        const toggleBtn = document.getElementById('sidebar-toggle-btn');
+        if (!resizer || !toggleBtn) return;
+
+        // 恢复状态
+        const savedWidth = localStorage.getItem('sidebarWidth');
+        if (savedWidth) { outlineContainer.style.flexBasis = savedWidth; }
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed) { pageContainer.classList.add('sidebar-collapsed'); }
+
+        // 拖动逻辑
+        let isResizing = false;
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            const mouseMoveHandler = (e) => {
+                if (!isResizing) return;
+                const containerRect = pageContainer.getBoundingClientRect();
+                const newWidth = e.clientX - containerRect.left;
+                requestAnimationFrame(() => { outlineContainer.style.flexBasis = `${newWidth}px`; });
+            };
+            const mouseUpHandler = () => {
+                isResizing = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                localStorage.setItem('sidebarWidth', outlineContainer.style.flexBasis);
+                document.removeEventListener('mousemove', mouseMoveHandler);
+                document.removeEventListener('mouseup', mouseUpHandler);
+            };
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        });
+
+        // 折叠切换
+        toggleBtn.addEventListener('click', () => {
+            const collapsed = pageContainer.classList.toggle('sidebar-collapsed');
+            localStorage.setItem('sidebarCollapsed', collapsed);
+        });
+    }
+  </script>
+</body>
+</html>

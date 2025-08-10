@@ -14,6 +14,39 @@
     body{font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,'Apple Color Emoji','Segoe UI Emoji'}
     .dragging{opacity:.5}
     .modal-backdrop{background:rgba(0,0,0,.55)}
+
+    /* ===== 自定义下拉（换皮） ===== */
+/* ===== 自定义下拉（换皮） ===== */
+.c-select{
+  position: relative;
+  display: block;   /* 关键：作为块级元素 */
+  width: 100%;      /* 关键：占满所在列/容器 */
+  flex: 1 1 auto;   /* 在 flex 容器里也能铺满 */
+  z-index: 10;
+}
+.c-select .c-btn{
+  display:flex; align-items:center; justify-content:space-between;
+  width:100%; padding:.5rem .75rem; border-radius:.75rem;
+  border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.05);
+}
+.c-select .c-btn:hover{ background:rgba(255,255,255,.08); }
+.c-select .c-menu{
+  position:absolute; left:0; right:0; margin-top:.25rem;
+  border:1px solid rgba(255,255,255,.1); background:rgba(2,6,23,.9);
+  -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+  border-radius:.75rem; box-shadow:0 10px 30px rgba(0,0,0,.35);
+  z-index:50; max-height:16rem; overflow:auto;
+}
+.c-select .c-opt{ padding:.5rem .75rem; cursor:pointer; font-size:.875rem; color:rgba(226,232,240,.9); }
+.c-select .c-opt[aria-selected="true"]{ background:rgba(34,211,238,.15); color:#e6fbff; }
+.c-select .c-opt:hover{ background:rgba(148,163,184,.2); }
+.c-select .hidden{ display:none; }
+/* 隐藏原生 select，但保留表单语义与可聚焦性 */
+.c-select .sr-hidden{
+  position:absolute !important; inset:0 !important; width:100% !important; height:100% !important;
+  opacity:0 !important; pointer-events:none !important;
+}
+
   </style>
 
   <script>
@@ -51,9 +84,10 @@
     <div class="flex items-end justify-between gap-4">
       <div>
         <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">数据与任务 · 管理面板</h1>
-        <p class="mt-2 text-slate-300">集中管理 <span class="text-cyan-300 font-semibold">Benchmark</span> 与 <span class="text-indigo-300 font-semibold">Dataset</span> 卡片：支持新增/编辑/删除/拖拽排序、批量导入导出。</p>
+        <p class="mt-2 text-slate-300">集中管理 <span class="text-cyan-300 font-semibold">Benchmark</span> 与 <span class="text-indigo-300 font-semibold">Dataset</span> 卡片。</p>
       </div>
       <div class="flex items-center gap-2">
+        <button id="restoreBtn" class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">恢复默认</button>
         <button id="exportBtn" class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">导出 JSON</button>
         <label class="rounded-xl px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-sm cursor-pointer">导入 JSON<input id="importInput" type="file" accept="application/json" class="hidden"/></label>
         <button id="addCardBtn" class="rounded-xl px-3 py-1.5 bg-cyan-500/20 border border-cyan-400/40 hover:bg-cyan-400/25 text-sm">新建卡片</button>
@@ -90,7 +124,7 @@
     <!-- 容器：卡片列表（可拖拽排序） -->
     <section class="mt-6">
       <div id="cards" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-      <div id="emptyState" class="hidden rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-400">暂无数据，点击右上角“新建卡片”或导入 JSON。</div>
+      <div id="statusMessage" class="hidden rounded-2xl border border-white/10 bg-white/5 p-8 text-center text-slate-400"></div>
     </section>
   </main>
 
@@ -119,6 +153,10 @@
         <div>
           <label class="text-xs text-slate-400">简介</label>
           <textarea name="desc" rows="3" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="一句话说明数据/基准的特点"></textarea>
+        </div>
+        <div>
+          <label class="text-xs text-slate-400">详细介绍（支持 Markdown）</label>
+          <textarea name="details" rows="6" class="mt-1 w-full rounded-xl bg-white/5 border border-white/10 px-3 py-2" placeholder="在此输入详细内容，支持 Markdown 语法..."></textarea>
         </div>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
@@ -154,162 +192,269 @@
   </footer>
 
   <script>
-    // ======= 数据层：localStorage 持久化 =======
-    const KEY='vlarena.cards.v1';
-    const seed=[
-      {id:crypto.randomUUID(), type:'benchmark', name:'LIBERO', desc:'多任务机器人操作基准：SPATIAL / OBJECT / GOAL / LONG', homepage:'https://lifelong-robot-learning.github.io/libero/', repo:'', tags:['manipulation','multi-task','sim']},
-      {id:crypto.randomUUID(), type:'benchmark', name:'BRIDGE', desc:'规模化模仿学习评测套件（v2 可扩展）', homepage:'https://rail-berkeley.github.io/bridge_data/', repo:'', tags:['imitation','cross-domain']},
-      {id:crypto.randomUUID(), type:'benchmark', name:'CALVIN', desc:'机械臂多任务、长目标序列', homepage:'https://calvin.cs.uni-freiburg.de/', repo:'', tags:['manipulation','long-horizon']},
-      {id:crypto.randomUUID(), type:'benchmark', name:'RT-X / Open-X', desc:'跨机器人/跨任务通用 BC 评测', homepage:'#', repo:'', tags:['rtx','generalization']},
-      {id:crypto.randomUUID(), type:'dataset', name:'Open-X Data', desc:'开源多机器人数据合集', homepage:'#', repo:'', tags:['multi-robot']},
-      {id:crypto.randomUUID(), type:'dataset', name:'RLAIF-Human', desc:'人类偏好/反馈数据', homepage:'#', repo:'', tags:['preference','rlaif']}
-    ];
-    function load(){ try{ return JSON.parse(localStorage.getItem(KEY)) || seed }catch{ return seed } }
-    function save(list){ localStorage.setItem(KEY, JSON.stringify(list)); }
+    // ======= 全局变量与 DOM 元素 =======
+    const KEY = 'vlarena.cards.v1';
+    const cardsEl = document.getElementById('cards');
+    const statusMessageEl = document.getElementById('statusMessage');
+    let data = []; // 全局数据，由初始化函数填充
 
-    // ======= 视图渲染 =======
-    const cardsEl=document.getElementById('cards');
-    const emptyEl=document.getElementById('emptyState');
-    let data=load();
+    // ======= 自定义下拉：把原生 <select> 包装为一致风格 =======
+    function enhanceSelect(select){
+      if(!select || select.dataset.enhanced) return; select.dataset.enhanced='1';
+      const wrap=document.createElement('div'); wrap.className='c-select';
+      const btn=document.createElement('button'); btn.type='button'; btn.className='c-btn';
+      const label=document.createElement('span'); label.textContent=select.options[select.selectedIndex]?.text || '';
+      const arrow=document.createElement('span'); arrow.innerHTML='▾'; arrow.className='ml-2 opacity-70';
+      const menu=document.createElement('div'); menu.className='c-menu hidden';
+      // 生成选项
+      Array.from(select.options).forEach((opt,i)=>{
+        const item=document.createElement('div');
+        item.className='c-opt'; item.setAttribute('role','option');
+        if(opt.value===select.value) item.setAttribute('aria-selected','true');
+        item.textContent=opt.text;
+        item.addEventListener('click',()=>{ select.value=opt.value; label.textContent=opt.text; menu.classList.add('hidden');
+          menu.querySelectorAll('.c-opt').forEach(x=>x.removeAttribute('aria-selected'));
+          item.setAttribute('aria-selected','true');
+          select.dispatchEvent(new Event('change',{bubbles:true}));
+        });
+        menu.appendChild(item);
+      });
+      // 结构挂载
+      select.classList.add('sr-hidden');
+      const parent=select.parentNode; parent.insertBefore(wrap, select); wrap.appendChild(select); wrap.appendChild(btn); btn.appendChild(label); btn.appendChild(arrow); wrap.appendChild(menu);
+      // 交互
+      btn.addEventListener('click',()=>{ menu.classList.toggle('hidden'); });
+      document.addEventListener('click',(e)=>{ if(!wrap.contains(e.target)) menu.classList.add('hidden'); });
+      // 同步：当代码里改 value 时
+      select.addEventListener('change',()=>{ const match=Array.from(select.options).find(o=>o.value===select.value); if(match){ label.textContent=match.text; menu.querySelectorAll('.c-opt').forEach(x=>x.removeAttribute('aria-selected')); const idx=Array.from(select.options).indexOf(match); const optDiv=menu.children[idx]; if(optDiv) optDiv.setAttribute('aria-selected','true'); }});
+    }
 
-    function tagChip(t){ return `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg bg-white/5 border border-white/10">${t}</span>` }
+    // ======= 数据层：JSON + localStorage 混合模式 =======
+    async function initializeData() {
+      showStatus('正在加载数据...');
+      const localData = localStorage.getItem(KEY);
+      
+      if (localData) {
+        try {
+          data = JSON.parse(localData);
+          console.log('从 localStorage 加载数据。');
+          return; // 如果本地有数据，直接使用
+        } catch (e) {
+          console.error('解析 localStorage 数据失败:', e);
+          // 解析失败，将尝试从 JSON 文件恢复
+        }
+      }
 
-    function render(list=data){
-      cardsEl.innerHTML='';
-      if(!list.length){ emptyEl.classList.remove('hidden'); return } else emptyEl.classList.add('hidden');
-      list.forEach(item=>{
-        const card=document.createElement('div');
-        card.className='group rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition relative';
-        card.draggable=true; card.dataset.id=item.id;
-        card.innerHTML=`
+      try {
+        console.log('本地无数据或解析失败，尝试从 datasets.json 加载。');
+        const response = await fetch('./datasets.json');
+        if (!response.ok) {
+          throw new Error(`网络响应错误: ${response.statusText}`);
+        }
+        const jsonData = await response.json();
+        data = jsonData;
+        save(data); // 将从 JSON 加载的数据存入 localStorage
+        console.log('成功从 datasets.json 加载并缓存数据。');
+      } catch (error) {
+        console.error('加载 datasets.json 失败:', error);
+        showStatus('错误：无法加载默认数据文件 (datasets.json)。请检查文件是否存在且格式正确。', true);
+      }
+    }
+
+    function save(list) {
+      try {
+        localStorage.setItem(KEY, JSON.stringify(list));
+      } catch (e) {
+        console.error('保存到 localStorage 失败:', e);
+        alert('无法保存数据，可能是存储空间已满。');
+      }
+    }
+
+    // ======= 视图渲染与状态显示 =======
+    function showStatus(message, isError = false) {
+      statusMessageEl.textContent = message;
+      statusMessageEl.className = `rounded-2xl border p-8 text-center ${isError ? 'border-red-500/30 bg-red-500/10 text-red-300' : 'border-white/10 bg-white/5 text-slate-400'}`;
+      statusMessageEl.classList.remove('hidden');
+      cardsEl.classList.add('hidden');
+    }
+
+    function hideStatus() {
+        statusMessageEl.classList.add('hidden');
+        cardsEl.classList.remove('hidden');
+    }
+    
+    function tagChip(t) { return `<span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-lg bg-white/5 border border-white/10">${t}</span>` }
+
+    function render(list = data) {
+      cardsEl.innerHTML = '';
+      if (!list.length) {
+        showStatus('无匹配结果。请尝试调整搜索或筛选条件。');
+        return;
+      }
+      
+      hideStatus();
+      list.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'group rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition relative';
+        card.draggable = true;
+        card.dataset.id = item.id;
+        card.innerHTML = `
           <div class="flex items-start justify-between gap-3">
             <div>
-              <div class="text-xs ${item.type==='benchmark'?'text-cyan-300':'text-indigo-300'}">${item.type.toUpperCase()}</div>
-              <a href="${item.homepage||'#'}" target="_blank" class="mt-1 block font-semibold leading-snug">${item.name}</a>
-              <p class="mt-1 text-sm text-slate-300">${item.desc||''}</p>
-              <div class="mt-2 flex flex-wrap gap-1">${(item.tags||[]).map(tagChip).join('')}</div>
+              <div class="text-xs ${item.type === 'benchmark' ? 'text-cyan-300' : 'text-indigo-300'}">${item.type.toUpperCase()}</div>
+              <a href="detail.html?id=${item.id}" class="mt-1 block font-semibold leading-snug hover:underline">${item.name}</a>
+              <p class="mt-1 text-sm text-slate-300">${item.desc || ''}</p>
+              <div class="mt-2 flex flex-wrap gap-1">${(item.tags || []).map(tagChip).join('')}</div>
             </div>
             <div class="shrink-0 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
-              ${item.repo?`<a href="${item.repo}" target="_blank" title="代码仓库" class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">Code</a>`:''}
+              ${item.repo ? `<a href="${item.repo}" target="_blank" title="代码仓库" class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">Code</a>` : ''}
               <button data-edit class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm">编辑</button>
               <button data-del class="rounded-lg px-2 py-1 bg-white/5 border border-white/10 hover:bg-white/10 text-sm text-red-300">删除</button>
               <span class="cursor-move rounded-lg px-2 py-1 bg-white/5 border border-white/10 text-xs" title="拖拽排序">↕</span>
             </div>
           </div>`;
-        // 事件：编辑/删除
-        card.querySelector('[data-edit]')?.addEventListener('click',()=>openModal(item));
-        card.querySelector('[data-del]')?.addEventListener('click',()=>delCard(item.id));
-        // 拖拽
-        card.addEventListener('dragstart',e=>{ card.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.id); });
-        card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+        card.querySelector('[data-edit]').addEventListener('click', () => openModal(item));
+        card.querySelector('[data-del]').addEventListener('click', () => delCard(item.id));
+        card.addEventListener('dragstart', e => { card.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.id); });
+        card.addEventListener('dragend', () => card.classList.remove('dragging'));
         cardsEl.appendChild(card);
       });
     }
 
-    // 拖拽排序容器逻辑
-    cardsEl.addEventListener('dragover',e=>{
+    // ======= 事件监听与业务逻辑 (大部分无变化) =======
+    // 拖拽排序
+    cardsEl.addEventListener('dragover', e => {
       e.preventDefault();
-      const dragging=document.querySelector('.dragging');
-      const after=getDragAfterElement(cardsEl, e.clientY);
-      if(after==null) cardsEl.appendChild(dragging); else cardsEl.insertBefore(dragging, after);
+      const dragging = document.querySelector('.dragging');
+      const after = getDragAfterElement(cardsEl, e.clientY);
+      if (after == null) cardsEl.appendChild(dragging); else cardsEl.insertBefore(dragging, after);
     });
-    function getDragAfterElement(container, y){
-      const els=[...container.querySelectorAll('[draggable]:not(.dragging)')];
-      return els.reduce((closest,child)=>{
-        const box=child.getBoundingClientRect();
-        const offset=y - box.top - box.height/2;
-        if(offset<0 && offset>closest.offset){ return {offset, element:child} } else return closest;
-      }, {offset:Number.NEGATIVE_INFINITY}).element;
+    function getDragAfterElement(container, y) {
+      const els = [...container.querySelectorAll('[draggable]:not(.dragging)')];
+      return els.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) { return { offset, element: child } } else return closest;
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 
     // 过滤
-    const searchInput=document.getElementById('searchInput');
-    const typeFilter=document.getElementById('typeFilter');
-    const tagFilter=document.getElementById('tagFilter');
-    function applyFilter(){
-      const q=(searchInput.value||'').toLowerCase();
-      const type=typeFilter.value; const tags=(tagFilter.value||'').toLowerCase().split(',').map(s=>s.trim()).filter(Boolean);
-      const filtered=data.filter(it=>{
-        const text=(it.name+" "+(it.desc||'')+" "+(it.tags||[]).join(' ')).toLowerCase();
+    const searchInput = document.getElementById('searchInput');
+    const typeFilter = document.getElementById('typeFilter');
+    const tagFilter = document.getElementById('tagFilter');
+    function applyFilter() {
+      const q = (searchInput.value || '').toLowerCase();
+      const type = typeFilter.value;
+      const tags = (tagFilter.value || '').toLowerCase().split(',').map(s => s.trim()).filter(Boolean);
+      const filtered = data.filter(it => {
+        const text = (it.name + " " + (it.desc || '') + " " + (it.tags || []).join(' ')).toLowerCase();
         const okText = !q || text.includes(q);
-        const okType = type==='all' || it.type===type;
-        const okTags = !tags.length || tags.every(t=> (it.tags||[]).join(' ').toLowerCase().includes(t));
+        const okType = type === 'all' || it.type === type;
+        const okTags = !tags.length || tags.every(t => (it.tags || []).join(' ').toLowerCase().includes(t));
         return okText && okType && okTags;
       });
       render(filtered);
     }
-    searchInput.addEventListener('input',applyFilter);
-    typeFilter.addEventListener('change',applyFilter);
-    tagFilter.addEventListener('input',applyFilter);
+    searchInput.addEventListener('input', applyFilter);
+    typeFilter.addEventListener('change', applyFilter);
+    tagFilter.addEventListener('input', applyFilter);
 
     // 新建/编辑
-    const modal=document.getElementById('modal');
-    const form=document.getElementById('cardForm');
-    const modalTitle=document.getElementById('modalTitle');
-    let editingId=null;
-    function openModal(item){
-      editingId=item?.id||null; modalTitle.textContent= editingId? '编辑卡片' : '新建卡片';
-      form.type.value=item?.type||'benchmark';
-      form.name.value=item?.name||''; form.desc.value=item?.desc||'';
-      form.homepage.value=item?.homepage||''; form.repo.value=item?.repo||'';
-      form.tags.value=(item?.tags||[]).join(', ');
-      modal.classList.remove('hidden'); modal.classList.add('flex');
+    const modal = document.getElementById('modal');
+    const form = document.getElementById('cardForm');
+    const modalTitle = document.getElementById('modalTitle');
+    let editingId = null;
+    function openModal(item) {
+      editingId = item?.id || null;
+      modalTitle.textContent = editingId ? '编辑卡片' : '新建卡片';
+      form.type.value = item?.type || 'benchmark';
+      form.name.value = item?.name || '';
+      form.desc.value = item?.desc || '';
+      form.details.value = item?.details || '';
+      form.homepage.value = item?.homepage || '';
+      form.repo.value = item?.repo || '';
+      form.tags.value = (item?.tags || []).join(', ');
+      // 同步自定义下拉显示
+      form.type.dispatchEvent(new Event('change', {bubbles:true}));
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
     }
-    function closeModal(){ modal.classList.add('hidden'); modal.classList.remove('flex'); }
-    document.querySelectorAll('[data-dismiss]').forEach(el=> el.addEventListener('click', closeModal));
-    document.getElementById('addCardBtn').addEventListener('click',()=>openModal(null));
+    function closeModal() { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    document.querySelectorAll('[data-dismiss]').forEach(el => el.addEventListener('click', closeModal));
+    document.getElementById('addCardBtn').addEventListener('click', () => openModal(null));
 
-    form.addEventListener('submit',e=>{
+    form.addEventListener('submit', e => {
       e.preventDefault();
-      const payload={
+      const payload = {
         id: editingId || crypto.randomUUID(),
         type: form.type.value,
         name: form.name.value.trim(),
         desc: form.desc.value.trim(),
+        details: form.details.value.trim(),
         homepage: form.homepage.value.trim(),
         repo: form.repo.value.trim(),
-        tags: (form.tags.value||'').split(',').map(s=>s.trim()).filter(Boolean)
+        tags: (form.tags.value || '').split(',').map(s => s.trim()).filter(Boolean)
       };
-      if(!payload.name){ alert('名称必填'); return }
-      if(editingId){ data=data.map(d=> d.id===editingId? payload : d); }
-      else{ data=[payload, ...data]; }
-      save(data); applyFilter(); closeModal();
+      if (!payload.name) { alert('名称必填'); return }
+      if (editingId) { data = data.map(d => d.id === editingId ? payload : d); }
+      else { data = [payload, ...data]; }
+      save(data);
+      applyFilter();
+      closeModal();
     });
 
-    function delCard(id){ if(confirm('确定删除该卡片？')){ data=data.filter(d=>d.id!==id); save(data); applyFilter(); } }
+    function delCard(id) {
+      if (confirm('确定删除该卡片？')) {
+        data = data.filter(d => d.id !== id);
+        save(data);
+        applyFilter();
+      }
+    }
 
-    // 导出/导入
-    document.getElementById('exportBtn').addEventListener('click',()=>{
-      const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a'); a.href=url; a.download='vlarena_datasets.json'; a.click(); URL.revokeObjectURL(url);
-    });
-    document.getElementById('importInput').addEventListener('change',async (e)=>{
-      const file=e.target.files?.[0]; if(!file) return; try{
-        const text=await file.text(); const json=JSON.parse(text);
-        if(!Array.isArray(json)) throw new Error('JSON 顶层应为数组');
-        // 简单校验（测试用例）
-        const ok=json.every(x=> x && typeof x.name==='string' && (x.type==='benchmark'||x.type==='dataset'));
-        if(!ok) throw new Error('元素必须包含 name 且 type ∈ {benchmark,dataset}');
-        data=json.map(x=> ({ id:x.id||crypto.randomUUID(), type:x.type, name:x.name, desc:x.desc||'', homepage:x.homepage||'', repo:x.repo||'', tags:Array.isArray(x.tags)?x.tags:[] }));
-        save(data); applyFilter(); alert('导入成功：'+data.length+' 条');
-      }catch(err){ alert('导入失败：'+err.message); }
-      e.target.value='';
+    // 导出/导入/恢复
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'vlarena_datasets.json'; a.click(); URL.revokeObjectURL(url);
     });
 
-    // 初始渲染
-    document.getElementById('year').textContent=new Date().getFullYear();
-    applyFilter();
+    document.getElementById('importInput').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0]; if (!file) return;
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        if (!Array.isArray(json)) throw new Error('JSON 顶层应为数组');
+        const ok = json.every(x => x && typeof x.name === 'string' && (x.type === 'benchmark' || x.type === 'dataset'));
+        if (!ok) throw new Error('元素必须包含 name 且 type ∈ {benchmark,dataset}');
+        data = json.map(x => ({ id: x.id || crypto.randomUUID(), type: x.type, name: x.name, desc: x.desc || '', details: x.details || '', homepage: x.homepage || '', repo: x.repo || '', tags: Array.isArray(x.tags) ? x.tags : [] }));
+        save(data);
+        applyFilter();
+        alert('导入成功：' + data.length + ' 条');
+      } catch (err) {
+        alert('导入失败：' + err.message);
+      }
+      e.target.value = '';
+    });
 
-    // ===== 简单测试（不会阻断页面） =====
-    (function tests(){
-      const t1 = Array.isArray(load());
-      console.assert(t1, '[TEST] 初始数据应为数组');
-      const sample={id:crypto.randomUUID(),type:'dataset',name:'_T',desc:'',homepage:'#',repo:'',tags:[]};
-      save([sample]); const t2 = load()[0].name==='_T';
-      console.assert(t2, '[TEST] 保存/加载 round-trip');
-      save(data); // 还原
-    })();
+    document.getElementById('restoreBtn').addEventListener('click', () => {
+        if (confirm('确定要恢复为默认数据吗？您当前的所有修改都将丢失。')) {
+            localStorage.removeItem(KEY);
+            location.reload(); // 刷新页面以重新从 JSON 文件加载
+        }
+    });
+
+    // ======= 页面启动函数 =======
+    async function main() {
+      document.getElementById('year').textContent = new Date().getFullYear();
+      await initializeData();
+      applyFilter(); // 初始渲染
+      // 启用下拉换皮（筛选 + 弹窗）
+      enhanceSelect(document.getElementById('typeFilter'));
+      enhanceSelect(document.querySelector('#cardForm select[name="type"]'));
+    }
+    
+    main(); // 启动应用
+
   </script>
 </body>
 </html>
